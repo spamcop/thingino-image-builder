@@ -41,7 +41,8 @@ browser ──POST /api/build──▶ Rust broker ──repository_dispatch─�
   "cancelling" state until the run stops), 30-minute download window.
 - **Admin panel** (`/admin.html`): live stats, recent builds/events with
   requester uid + full **IP** (click → /64 bucket) and origin-country flag, a global **kill switch**,
-  a **notice banner** (one at a time, info/warning/danger, optional auto-expiry,
+  a **notice banner** (one at a time, GitHub's five alert levels
+  note/tip/important/warning/caution with its colours, optional auto-expiry,
   shown to every visitor alongside the builds-disabled banner),
   **live limit editing** (with usage), per-build **cancel / remove**, **clear logs
   / finished builds**, **named admin accounts** (invite-link self-enrollment,

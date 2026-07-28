@@ -23,6 +23,13 @@ I18N.add("uk", {
   stats_typical: "звичайна збірка",
   commit_badge_text: "{branch} @ {commit}",
   builds_disabled: "Збірки тимчасово вимкнено на час технічного обслуговування, завітайте пізніше.",
+  // Notice banner: the level label the admin picked (the notice text itself is
+  // theirs, shown as written). Names and colours follow GitHub's markdown alerts.
+  notice_note: "Примітка",
+  notice_tip: "Порада",
+  notice_important: "Важливо",
+  notice_warning: "Попередження",
+  notice_caution: "Обережно",
   meta_defconfig: "defconfig",
   meta_build_id: "ID збірки",
   deduped_note: "повторно використано наявний ідентичний образ",

@@ -23,6 +23,13 @@ I18N.add("zh-CN", {
   stats_typical: "典型构建",
   commit_badge_text: "{branch} @ {commit}",
   builds_disabled: "维护期间构建已暂时停用，请稍后再来。",
+  // Notice banner: the level label the admin picked (the notice text itself is
+  // theirs, shown as written). Names and colours follow GitHub's markdown alerts.
+  notice_note: "注意",
+  notice_tip: "提示",
+  notice_important: "重要",
+  notice_warning: "警告",
+  notice_caution: "小心",
   meta_defconfig: "defconfig",
   meta_build_id: "构建 ID",
   deduped_note: "复用了已存在的相同镜像",

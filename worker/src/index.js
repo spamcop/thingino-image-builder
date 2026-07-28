@@ -222,7 +222,17 @@ async function fetchDefconfigs(env, repo, commit) {
 // An admin-posted banner for the builder page, kept in ONE settings row ({text, level,
 // until}) so a stats poll costs a single read. until=0 stays up until cleared; an
 // expired notice is filtered here rather than swept, so nothing has to run to hide it.
-const NOTICE_LEVELS = ["info", "warning", "danger"];
+// The levels are GitHub's five markdown alert types, so the page can borrow a vocabulary
+// (and colours) readers already know from every README they've ever opened.
+const NOTICE_LEVELS = ["note", "tip", "important", "warning", "caution"];
+// The two renamed levels. A notice posted under the old names still renders, and an
+// admin page from before the rename can still post, so neither the Worker nor the
+// broker has to be updated in lockstep with the static site.
+const NOTICE_ALIASES = { info: "note", danger: "caution" };
+const normLevel = (l) => {
+  const s = NOTICE_ALIASES[l] || l;
+  return NOTICE_LEVELS.includes(s) ? s : "note";
+};
 // The text is admin-typed and lands on a public page, so it is normalised on the way in:
 // controls and bidi overrides (which could visually spoof the rest of the banner) become
 // spaces, runs of whitespace collapse, and the whole thing is length-capped. The page
@@ -240,7 +250,7 @@ async function getNotice(env) {
   try { n = JSON.parse(raw); } catch { return null; }
   if (!n || !n.text) return null;
   if (n.until && n.until <= nowSec()) return null;
-  return { text: n.text, level: NOTICE_LEVELS.includes(n.level) ? n.level : "info", until: n.until || 0 };
+  return { text: n.text, level: normLevel(n.level), until: n.until || 0 };
 }
 
 // ---- API handlers ---------------------------------------------------------
@@ -1026,7 +1036,7 @@ async function handleAdminNotice(request, env) {
     await logEvent(env, "admin_notice", null, null, null, "notice cleared");
     return json({ ok: true, notice: null }, 200, env);
   }
-  const level = NOTICE_LEVELS.includes(body.level) ? body.level : "info";
+  const level = normLevel(body.level);
   // hours <= 0 or absent means no expiry; the cap keeps a typo from parking a banner for years.
   const hours = parseInt(body.hours, 10);
   const until = Number.isFinite(hours) && hours > 0 ? nowSec() + Math.min(hours, 720) * 3600 : 0;

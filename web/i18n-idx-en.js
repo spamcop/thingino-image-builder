@@ -23,6 +23,13 @@ I18N.add("en", {
   stats_typical: "typical build",
   commit_badge_text: "{branch} @ {commit}",
   builds_disabled: "Builds are temporarily disabled during ongoing maintenance, check back later.",
+  // Notice banner: the level label the admin picked (the notice text itself is theirs,
+  // shown as written). Names and colours follow GitHub's markdown alerts.
+  notice_note: "Note",
+  notice_tip: "Tip",
+  notice_important: "Important",
+  notice_warning: "Warning",
+  notice_caution: "Caution",
   meta_defconfig: "defconfig",
   meta_build_id: "build id",
   deduped_note: "reused an existing identical image",

@@ -146,8 +146,11 @@ the **Sign out** button.
 early, live stats / recent builds + events.
 
 **Privilege-gated**: the **kill switch** (enable/disable builds), the **notice
-banner** (`edit_notice`: one notice at a time on the builder page, info/warning/
-danger, optional 1h/6h/24h/72h auto-expiry, empty text clears it), edit **limits**
+banner** (`edit_notice`: one notice at a time on the builder page, at one of
+GitHub's five alert levels (note, tip, important, warning, caution), rendered in
+its colours and labelled in the visitor's language, optional 1h/6h/24h/72h
+auto-expiry, empty text clears it; the levels' old names `info` and `danger` are
+still accepted and map to note and caution), edit **limits**
 (live, no redeploy, usage shown), **clear logs**, **clear finished builds**, **reset
 limits**: a named admin can run each only if granted that privilege (new admins
 start with **none**); the master always can, and grants them via checkboxes in the

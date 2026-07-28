@@ -257,7 +257,20 @@ fn builds_enabled(conn: &Connection) -> bool {
 /// An admin-posted banner for the builder page, kept in ONE settings row ({text, level,
 /// until}) so a stats poll costs a single read. until=0 stays up until cleared; an expired
 /// notice is filtered on read rather than swept, so nothing has to run to hide it.
-const NOTICE_LEVELS: [&str; 3] = ["info", "warning", "danger"];
+/// The levels are GitHub's five markdown alert types, so the page can borrow a vocabulary
+/// (and colours) readers already know from every README they've ever opened.
+const NOTICE_LEVELS: [&str; 5] = ["note", "tip", "important", "warning", "caution"];
+/// Levels arrive from the admin page and from the settings row, and "info"/"danger" are
+/// what note/caution used to be called: mapping them here means a notice posted before
+/// the rename still renders, and an admin page from before it can still post.
+fn norm_level(l: &str) -> &'static str {
+    let name = match l {
+        "info" => "note",
+        "danger" => "caution",
+        other => other,
+    };
+    NOTICE_LEVELS.into_iter().find(|&l| l == name).unwrap_or("note")
+}
 /// The text is admin-typed and lands on a public page, so it is normalised on the way in:
 /// controls and bidi overrides (which could visually spoof the rest of the banner) become
 /// spaces, runs of whitespace collapse, and the whole thing is length-capped. The page
@@ -290,8 +303,7 @@ fn get_notice(conn: &Connection) -> Option<serde_json::Value> {
     if until > 0 && until <= now() {
         return None;
     }
-    let level = n.get("level").and_then(|v| v.as_str()).unwrap_or("info");
-    let level = if NOTICE_LEVELS.contains(&level) { level } else { "info" };
+    let level = norm_level(n.get("level").and_then(|v| v.as_str()).unwrap_or(""));
     Some(json!({ "text": text, "level": level, "until": until }))
 }
 
@@ -1556,8 +1568,7 @@ async fn admin_notice(State(st): State<AppState>, headers: HeaderMap, body: axum
         drop(conn);
         return Json(json!({ "ok": true, "notice": serde_json::Value::Null })).into_response();
     }
-    let level = body.get("level").and_then(|v| v.as_str()).unwrap_or("info");
-    let level = if NOTICE_LEVELS.contains(&level) { level } else { "info" };
+    let level = norm_level(body.get("level").and_then(|v| v.as_str()).unwrap_or(""));
     // hours <= 0 or absent means no expiry; the cap keeps a typo from parking a banner for years.
     let hours = body.get("hours").and_then(|v| v.as_i64()).unwrap_or(0);
     let until = if hours > 0 { now() + hours.min(720) * 3600 } else { 0 };

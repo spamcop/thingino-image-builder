@@ -163,6 +163,21 @@
     history.replaceState(null,'',allowed.has(v)?shareUrl():location.origin+location.pathname);
   }
 
+  /* Notice levels: GitHub's five markdown alert types, each in a Bootstrap alert variant
+   * (note and caution keep the colours the old info and danger levels had) and with the
+   * Bootstrap icon closest to GitHub's octicon for it: info, light-bulb, report, alert,
+   * stop. info/danger are what note/caution used to be called, mapped here so a notice
+   * posted before the rename keeps rendering in the right colour. */
+  const NOTICE={
+    note:      {cls:'alert-info',    icon:'info-circle'},
+    tip:       {cls:'alert-success', icon:'lightbulb'},
+    important: {cls:'alert-purple',  icon:'exclamation-square'},
+    warning:   {cls:'alert-warning', icon:'exclamation-triangle'},
+    caution:   {cls:'alert-danger',  icon:'exclamation-octagon'},
+  };
+  const NOTICE_ALIAS={info:'note',danger:'caution'};
+  const noticeLevel=l=>{ const s=NOTICE_ALIAS[l]||l; return NOTICE[s]?s:'note'; };
+
   function renderGlobal(d){
     curCommit=d.commit||null;
     $('stats').innerHTML=`<i class="bi bi-hdd-stack me-1"></i><b>${esc(d.running)}</b>/${esc(d.max_concurrent)} ${I18N.t('stats_building')} &nbsp;·&nbsp; <b>${esc(d.queued)}</b> ${I18N.t('stats_queued')} &nbsp;·&nbsp; ${I18N.t('stats_typical')} <b>${mins(d.avg_build_secs)}</b>`;
@@ -174,13 +189,17 @@
     else b.classList.add('d-none');
     // Admin-posted notice: informational only, so unlike the banner above it never touches
     // the picker. The text is admin-typed and this is a public page, so it goes in as text
-    // and only the icon is markup. It is one notice at a time, by construction server-side.
+    // and only the icon and the level label are markup. It is one notice at a time, by
+    // construction server-side.
+    // The level's label ("Note", "Tip", …) is the visitor's language, the text stays the
+    // language the admin wrote it in: the label is ours to translate, the text is theirs.
     const nb=$('notice'), n=d.notice;
     if(n&&n.text){
-      const lvl=['info','warning','danger'].includes(n.level)?n.level:'info';
-      nb.className='alert alert-'+lvl+' py-2 small';
-      nb.innerHTML='<i class="bi bi-'+(lvl==='info'?'info-circle':'exclamation-triangle')+' me-1"></i><span></span>';
-      nb.querySelector('span').textContent=n.text;
+      const lvl=noticeLevel(n.level);
+      nb.className='alert '+NOTICE[lvl].cls+' py-2 small';
+      nb.innerHTML='<i class="bi bi-'+NOTICE[lvl].icon+' me-1"></i><b class="notice-label me-1"></b><span class="notice-text"></span>';
+      nb.querySelector('.notice-label').textContent=I18N.t('notice_'+lvl);
+      nb.querySelector('.notice-text').textContent=n.text;
     } else { nb.className='alert py-2 small d-none'; nb.textContent=''; }
     // During maintenance (kill switch off) the picker is disabled, not just the banner.
     const off=d.builds_enabled===false;

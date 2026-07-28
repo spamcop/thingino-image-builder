@@ -23,6 +23,13 @@ I18N.add("pt", {
   stats_typical: "compilação típica",
   commit_badge_text: "{branch} @ {commit}",
   builds_disabled: "As compilações estão temporariamente desativadas durante a manutenção em andamento, volte mais tarde.",
+  // Notice banner: the level label the admin picked (the notice text itself is
+  // theirs, shown as written). Names and colours follow GitHub's markdown alerts.
+  notice_note: "Nota",
+  notice_tip: "Dica",
+  notice_important: "Importante",
+  notice_warning: "Aviso",
+  notice_caution: "Cuidado",
   meta_defconfig: "defconfig",
   meta_build_id: "id da compilação",
   deduped_note: "reutilizou uma imagem idêntica existente",

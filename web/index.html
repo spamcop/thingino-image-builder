@@ -26,6 +26,10 @@
     .btn-thingino { background:#ff8c00; border-color:#ff8c00; color:#0d1117; font-weight:600; }
     .btn-thingino:hover, .btn-thingino:focus { background:#ff9e2c; border-color:#ff9e2c; color:#0d1117; }
     .muted { color:#8b949e !important; }
+    /* Bootstrap has no purple, so the "important" notice level brings its own (GitHub's,
+       since the levels are its alert types). It goes through Bootstrap's own alert
+       variables, so the box is identical to the stock variants next to it. */
+    .alert-purple { --bs-alert-color:#c8a2ff; --bs-alert-bg:#241a35; --bs-alert-border-color:#4b357a; }
     @media (max-width:576px){ body{ padding:.5rem !important; } }
     /* Opt-in help balloons (toggled by the ? button / Settings; off by default) */
     body.help-on [data-help] { cursor: help; }

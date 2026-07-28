@@ -23,6 +23,13 @@ I18N.add("nl", {
   stats_typical: "typische build",
   commit_badge_text: "{branch} @ {commit}",
   builds_disabled: "Builds zijn tijdelijk uitgeschakeld wegens lopend onderhoud, kom later terug.",
+  // Notice banner: the level label the admin picked (the notice text itself is
+  // theirs, shown as written). Names and colours follow GitHub's markdown alerts.
+  notice_note: "Opmerking",
+  notice_tip: "Tip",
+  notice_important: "Belangrijk",
+  notice_warning: "Waarschuwing",
+  notice_caution: "Let op",
   meta_defconfig: "defconfig",
   meta_build_id: "build-id",
   deduped_note: "bestaande identieke image hergebruikt",

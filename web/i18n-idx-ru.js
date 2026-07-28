@@ -23,6 +23,13 @@ I18N.add("ru", {
   stats_typical: "обычная сборка",
   commit_badge_text: "{branch} @ {commit}",
   builds_disabled: "Сборки временно отключены на время технического обслуживания, загляните позже.",
+  // Notice banner: the level label the admin picked (the notice text itself is
+  // theirs, shown as written). Names and colours follow GitHub's markdown alerts.
+  notice_note: "Примечание",
+  notice_tip: "Совет",
+  notice_important: "Важно",
+  notice_warning: "Предупреждение",
+  notice_caution: "Внимание",
   meta_defconfig: "defconfig",
   meta_build_id: "ID сборки",
   deduped_note: "повторно использован существующий идентичный образ",

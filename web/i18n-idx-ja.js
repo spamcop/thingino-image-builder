@@ -23,6 +23,13 @@ I18N.add("ja", {
   stats_typical: "標準ビルド時間",
   commit_badge_text: "{branch} @ {commit}",
   builds_disabled: "メンテナンス中のためビルドは一時的に無効になっています。後ほどご確認ください。",
+  // Notice banner: the level label the admin picked (the notice text itself is
+  // theirs, shown as written). Names and colours follow GitHub's markdown alerts.
+  notice_note: "メモ",
+  notice_tip: "ヒント",
+  notice_important: "重要",
+  notice_warning: "警告",
+  notice_caution: "注意",
   meta_defconfig: "defconfig",
   meta_build_id: "ビルドID",
   deduped_note: "既存の同一イメージを再利用しました",

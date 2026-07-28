@@ -125,15 +125,20 @@ async function refresh(){
 }
 async function toggle(){ await fetch(API+'/api/admin/toggle',{method:'POST',headers:{Authorization:'Bearer '+tok(),'content-type':'application/json'},body:JSON.stringify({enabled:!enabled})}); refresh(); }
 // --- notice banner: one at a time, posted to the public builder page ---
-const NLVL={info:'bg-info text-dark',warning:'bg-warning text-dark',danger:'bg-danger'};
+// Levels are GitHub's five markdown alert types; each badge takes the Bootstrap colour
+// its banner uses on the builder page. info/danger are the old names of note/caution,
+// mapped so a notice posted before the rename still shows the right badge.
+const NLVL={note:'bg-info text-dark',tip:'bg-success',important:'bg-purple',warning:'bg-warning text-dark',caution:'bg-danger'};
+const NLVL_ALIAS={info:'note',danger:'caution'};
+const nlvl=l=>{ const s=NLVL_ALIAS[l]||l; return NLVL[s]?s:'note'; };
 let noticeSeen=null;
 function renderNotice(d){
   const can=!!(d.master||d.edit_notice);
   $('notice-card').style.display=can?'':'none';
   if(!can) return;
-  const n=d.notice;
+  const n=d.notice, lvl=n?nlvl(n.level):'note';
   $('notice-state').innerHTML=n
-    ?`<span class="badge ${NLVL[n.level]||NLVL.info}">${esc(I18N.t('notice_'+n.level))}</span> ${esc(n.text)}`
+    ?`<span class="badge ${NLVL[lvl]}">${esc(I18N.t('notice_'+lvl))}</span> ${esc(n.text)}`
       +(n.until?` <span class="muted">${esc(I18N.t('notice_expires',{t:new Date(n.until*1000).toLocaleString()}))}</span>`:'')
     :`<span class="muted">${esc(I18N.t('notice_none'))}</span>`;
   // Refill the editor from the server only when the server's value actually changed and the
@@ -142,7 +147,7 @@ function renderNotice(d){
   if(sig!==noticeSeen&&document.activeElement!==$('notice-text')){
     noticeSeen=sig;
     $('notice-text').value=n?n.text:'';
-    $('notice-level').value=n?n.level:'info';
+    $('notice-level').value=lvl;
   }
 }
 async function postNotice(clear){

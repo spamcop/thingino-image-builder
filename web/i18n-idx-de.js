@@ -23,6 +23,13 @@ I18N.add("de", {
   stats_typical: "typischer Build",
   commit_badge_text: "{branch} @ {commit}",
   builds_disabled: "Builds sind wegen laufender Wartung vorübergehend deaktiviert, bitte schau später wieder vorbei.",
+  // Notice banner: the level label the admin picked (the notice text itself is
+  // theirs, shown as written). Names and colours follow GitHub's markdown alerts.
+  notice_note: "Hinweis",
+  notice_tip: "Tipp",
+  notice_important: "Wichtig",
+  notice_warning: "Warnung",
+  notice_caution: "Achtung",
   meta_defconfig: "defconfig",
   meta_build_id: "Build-ID",
   deduped_note: "vorhandenes identisches Image wiederverwendet",

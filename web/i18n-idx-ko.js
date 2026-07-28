@@ -23,6 +23,13 @@ I18N.add("ko", {
   stats_typical: "표준 빌드 시간",
   commit_badge_text: "{branch} @ {commit}",
   builds_disabled: "유지 보수 진행 중이라 빌드가 일시적으로 비활성화되었습니다. 나중에 다시 확인해 주세요.",
+  // Notice banner: the level label the admin picked (the notice text itself is
+  // theirs, shown as written). Names and colours follow GitHub's markdown alerts.
+  notice_note: "참고",
+  notice_tip: "팁",
+  notice_important: "중요",
+  notice_warning: "경고",
+  notice_caution: "주의",
   meta_defconfig: "defconfig",
   meta_build_id: "빌드 ID",
   deduped_note: "기존의 동일한 이미지를 재사용했습니다",

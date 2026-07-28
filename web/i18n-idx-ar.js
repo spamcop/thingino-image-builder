@@ -23,6 +23,13 @@ I18N.add("ar", {
   stats_typical: "البناء المعتاد",
   commit_badge_text: "{branch} @ {commit}",
   builds_disabled: "عمليات البناء معطّلة مؤقتًا بسبب صيانة جارية، يُرجى المحاولة لاحقًا.",
+  // Notice banner: the level label the admin picked (the notice text itself is
+  // theirs, shown as written). Names and colours follow GitHub's markdown alerts.
+  notice_note: "ملاحظة",
+  notice_tip: "نصيحة",
+  notice_important: "مهم",
+  notice_warning: "تحذير",
+  notice_caution: "تنبيه",
   meta_defconfig: "defconfig",
   meta_build_id: "معرّف البناء",
   deduped_note: "أُعيد استخدام صورة مطابقة موجودة",

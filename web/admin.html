@@ -28,6 +28,9 @@
     .table > :not(caption) > * > * { background:transparent; }
     th { color:#8b949e; font-weight:600; white-space:nowrap; }
     td { white-space:nowrap; vertical-align:middle; }
+    /* The "important" notice level has no Bootstrap colour of its own; this badge matches
+       the purple its banner uses on the builder page. */
+    .bg-purple { background:#a371f7; color:#0d1117; }
   </style>
 </head>
 <body class="p-3">
@@ -123,10 +126,13 @@
     <div class="d-flex align-items-end gap-2 flex-wrap">
       <div>
         <label class="form-label small mb-0" for="notice-level" data-i18n="notice_level">Level</label>
+        <!-- GitHub's five markdown alert types, in its order (mildest first). -->
         <select id="notice-level" class="form-select form-select-sm">
-          <option value="info" data-i18n="notice_info">Info</option>
+          <option value="note" data-i18n="notice_note">Note</option>
+          <option value="tip" data-i18n="notice_tip">Tip</option>
+          <option value="important" data-i18n="notice_important">Important</option>
           <option value="warning" data-i18n="notice_warning">Warning</option>
-          <option value="danger" data-i18n="notice_danger">Danger</option>
+          <option value="caution" data-i18n="notice_caution">Caution</option>
         </select>
       </div>
       <div>

@@ -23,6 +23,13 @@ I18N.add("fr", {
   stats_typical: "génération type",
   commit_badge_text: "{branch} @ {commit}",
   builds_disabled: "Les générations sont temporairement désactivées pendant une maintenance en cours, revenez plus tard.",
+  // Notice banner: the level label the admin picked (the notice text itself is
+  // theirs, shown as written). Names and colours follow GitHub's markdown alerts.
+  notice_note: "Note",
+  notice_tip: "Astuce",
+  notice_important: "Important",
+  notice_warning: "Avertissement",
+  notice_caution: "Attention",
   meta_defconfig: "defconfig",
   meta_build_id: "id de génération",
   deduped_note: "réutilisation d'une image identique existante",

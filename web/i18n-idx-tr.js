@@ -23,6 +23,13 @@ I18N.add("tr", {
   stats_typical: "tipik derleme",
   commit_badge_text: "{branch} @ {commit}",
   builds_disabled: "Devam eden bakım nedeniyle derlemeler geçici olarak devre dışı, lütfen daha sonra tekrar deneyin.",
+  // Notice banner: the level label the admin picked (the notice text itself is
+  // theirs, shown as written). Names and colours follow GitHub's markdown alerts.
+  notice_note: "Not",
+  notice_tip: "İpucu",
+  notice_important: "Önemli",
+  notice_warning: "Uyarı",
+  notice_caution: "Dikkat",
   meta_defconfig: "defconfig",
   meta_build_id: "derleme kimliği",
   deduped_note: "mevcut özdeş bir imaj yeniden kullanıldı",
