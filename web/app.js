@@ -196,7 +196,11 @@
     const nb=$('notice'), n=d.notice;
     if(n&&n.text){
       const lvl=noticeLevel(n.level);
-      nb.className='alert '+NOTICE[lvl].cls+' py-2 small';
+      // `pulse` rides along in the class string deliberately. A CSS animation only restarts
+      // when its class is missing at a style recalculation, so reassigning a string that
+      // still carries it leaves the loops running and the 15s/60s cadence survives every
+      // poll. Dropping it and re-adding it separately would restart the pulse each time.
+      nb.className='alert '+NOTICE[lvl].cls+' py-2 small pulse';
       nb.innerHTML='<i class="bi bi-'+NOTICE[lvl].icon+' me-1"></i><b class="notice-label me-1"></b><span class="notice-text"></span>';
       nb.querySelector('.notice-label').textContent=I18N.t('notice_'+lvl);
       nb.querySelector('.notice-text').textContent=n.text;

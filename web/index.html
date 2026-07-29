@@ -30,6 +30,21 @@
        since the levels are its alert types). It goes through Bootstrap's own alert
        variables, so the box is identical to the stock variants next to it. */
     .alert-purple { --bs-alert-color:#c8a2ff; --bs-alert-bg:#241a35; --bs-alert-border-color:#4b357a; }
+    /* Notice pulse. The border beats every 15s; once a minute a band of light crosses with
+       it. 60s is exactly four 15s beats and both loops start together, so every fourth beat
+       coincides on its own, with nothing synchronising them. Both endpoint colours come from
+       the level's own alert variables, so all five levels pulse in their own colour. */
+    @keyframes notice-edge {
+      0%, 12%, 100% { border-color: var(--bs-alert-border-color); }
+      5%            { border-color: currentColor; }
+    }
+    @keyframes notice-sheen {
+      0%          { background-position: -150% 0; }
+      2.5%, 100%  { background-position: 250% 0; }
+    }
+    #notice.pulse { background-image:linear-gradient(100deg,transparent 42%,color-mix(in srgb,currentColor 16%,transparent) 50%,transparent 58%); background-size:250% 100%; background-repeat:no-repeat; background-position:-150% 0; animation:notice-edge 15s ease-in-out infinite, notice-sheen 60s linear infinite; }
+    /* What Bootstrap does to every animation it ships, and the notice must read fine without it. */
+    @media (prefers-reduced-motion:reduce) { #notice.pulse { animation:none; } }
     @media (max-width:576px){ body{ padding:.5rem !important; } }
     /* Opt-in help balloons (toggled by the ? button / Settings; off by default) */
     body.help-on [data-help] { cursor: help; }
