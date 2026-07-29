@@ -1,9 +1,13 @@
 /* Right-to-left support (Arabic, and any future he/fa/ur).
  *
  * The vendored bootstrap.min.css is the LTR build, so its directional margin
- * utilities (ms-*/me-*) compile to physical left/right and do NOT flip under
+ * utilities (ms-* and me-*) compile to physical left/right and do NOT flip under
  * dir="rtl". i18n.js sets <html dir="rtl"> for RTL languages; here we mirror
- * the handful of directional utilities the UI actually uses. */
+ * the handful of directional utilities the UI actually uses.
+ *
+ * Never write the pair "ms-*" "/" inside these comments: that closes the comment
+ * early and the parser's error recovery then eats the rule below it. It did exactly
+ * that to .me-1 from the commit that added this file until 2026-07-29. */
 
 [dir="rtl"] .me-1 { margin-right: 0 !important; margin-left: .25rem !important; }
 [dir="rtl"] .me-2 { margin-right: 0 !important; margin-left: .5rem !important; }
