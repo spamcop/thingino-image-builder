@@ -198,7 +198,7 @@
       const lvl=noticeLevel(n.level);
       // `pulse` rides along in the class string deliberately. A CSS animation only restarts
       // when its class is missing at a style recalculation, so reassigning a string that
-      // still carries it leaves the loops running and the 15s/60s cadence survives every
+      // still carries it leaves the loops running and the 10s/60s cadence survives every
       // poll. Dropping it and re-adding it separately would restart the pulse each time.
       nb.className='alert '+NOTICE[lvl].cls+' py-2 small pulse';
       // dir="auto" on the text only: the admin writes the notice in their own language, so

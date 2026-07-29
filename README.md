@@ -44,7 +44,7 @@ browser ──POST /api/build──▶ Rust broker ──repository_dispatch─�
   a **notice banner** (one at a time, GitHub's five alert levels
   note/tip/important/warning/caution with its colours, optional auto-expiry,
   shown to every visitor alongside the builds-disabled banner, pulsing its border
-  every 15s and crossing a light sweep once a minute),
+  every 10s and crossing a light sweep once a minute),
   **live limit editing** (with usage), per-build **cancel / remove**, **clear logs
   / finished builds**, **named admin accounts** (invite-link self-enrollment,
   PBKDF2 passwords, per-user TOTP) with a **master break-glass** token, and an

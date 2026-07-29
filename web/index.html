@@ -30,13 +30,15 @@
        since the levels are its alert types). It goes through Bootstrap's own alert
        variables, so the box is identical to the stock variants next to it. */
     .alert-purple { --bs-alert-color:#c8a2ff; --bs-alert-bg:#241a35; --bs-alert-border-color:#4b357a; }
-    /* Notice pulse. The border beats every 15s; once a minute a band of light crosses with
-       it. 60s is exactly four 15s beats and both loops start together, so every fourth beat
+    /* Notice pulse. The border beats every 10s; once a minute a band of light crosses with
+       it. 60s is exactly six 10s beats and both loops start together, so every sixth beat
        coincides on its own, with nothing synchronising them. Both endpoint colours come from
-       the level's own alert variables, so all five levels pulse in their own colour. */
+       the level's own alert variables, so all five levels pulse in their own colour.
+       The percentages keep the ramp at 1.8s and its peak at 0.75s, where the band's centre
+       crosses, so retiming the beat does not pull the two halves apart. */
     @keyframes notice-edge {
-      0%, 12%, 100% { border-color: var(--bs-alert-border-color); }
-      5%            { border-color: currentColor; }
+      0%, 18%, 100% { border-color: var(--bs-alert-border-color); }
+      7.5%          { border-color: currentColor; }
     }
     /* The sweep's geometry lives in custom properties so rtl.css can mirror it by flipping
        three values, instead of restating the keyframes and the animation. */
@@ -44,7 +46,7 @@
       0%          { background-position: var(--sweep-from) 0; }
       2.5%, 100%  { background-position: var(--sweep-to) 0; }
     }
-    #notice.pulse { --sweep-angle:100deg; --sweep-from:-150%; --sweep-to:250%; background-image:linear-gradient(var(--sweep-angle),transparent 42%,color-mix(in srgb,currentColor 16%,transparent) 50%,transparent 58%); background-size:250% 100%; background-repeat:no-repeat; background-position:var(--sweep-from) 0; animation:notice-edge 15s ease-in-out infinite, notice-sheen 60s linear infinite; }
+    #notice.pulse { --sweep-angle:100deg; --sweep-from:-150%; --sweep-to:250%; background-image:linear-gradient(var(--sweep-angle),transparent 42%,color-mix(in srgb,currentColor 16%,transparent) 50%,transparent 58%); background-size:250% 100%; background-repeat:no-repeat; background-position:var(--sweep-from) 0; animation:notice-edge 10s ease-in-out infinite, notice-sheen 60s linear infinite; }
     /* What Bootstrap does to every animation it ships, and the notice must read fine without it. */
     @media (prefers-reduced-motion:reduce) { #notice.pulse { animation:none; } }
     @media (max-width:576px){ body{ padding:.5rem !important; } }
