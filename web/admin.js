@@ -273,9 +273,10 @@ function askConfirm(anchor,message,actionLabel){
   return new Promise(done=>{
     const el=document.createElement('div');
     el.className='cpop';
-    el.innerHTML=`<div></div><div class="cpop-row"><button type="button" class="btn btn-sm btn-danger py-0 cpop-go"></button>`+
-                 `<button type="button" class="cpop-x" aria-label="${esc(I18N.t('limits_cancel'))}">&times;</button></div>`;
-    el.firstChild.textContent=message;                       // admin-facing, but never as markup
+    el.innerHTML=`<div class="cpop-msg"></div>`+
+                 `<div class="cpop-row"><button type="button" class="btn btn-sm btn-danger py-0 cpop-go"></button></div>`+
+                 `<button type="button" class="cpop-x" aria-label="${esc(I18N.t('limits_cancel'))}">&times;</button>`;
+    el.querySelector('.cpop-msg').textContent=message;       // admin-facing, but never as markup
     el.querySelector('.cpop-go').textContent=actionLabel;
     document.body.appendChild(el);
 

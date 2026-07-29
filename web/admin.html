@@ -39,8 +39,12 @@
             border:1px solid #30363d; border-radius:.5rem; box-shadow:0 8px 24px rgba(0,0,0,.5);
             padding:.55rem .65rem; font-size:.8rem; line-height:1.4; color:#dee2e6; }
     .cpop-row { display:flex; align-items:center; gap:.4rem; margin-top:.45rem; }
-    .cpop-x { margin-inline-start:auto; border:0; background:transparent; color:#8b949e; font-size:1rem;
-              line-height:1; padding:0 .2rem; cursor:pointer; }
+    /* Dismiss sits in the top corner, out of the way of the action button. It is last in the
+       DOM so the pointer and the tab order both reach the action first; inset-inline-end puts
+       it top-right under dir=ltr and top-left under dir=rtl. */
+    .cpop-msg { padding-inline-end:1.1rem; }
+    .cpop-x { position:absolute; top:.1rem; inset-inline-end:.2rem; border:0; background:transparent;
+              color:#8b949e; font-size:1rem; line-height:1; padding:.1rem .25rem; cursor:pointer; }
     .cpop-x:hover { color:#dee2e6; }
     .cpop::after { content:""; position:absolute; width:9px; height:9px; background:#161b22;
                    border-left:1px solid #30363d; border-top:1px solid #30363d; transform:rotate(45deg);
