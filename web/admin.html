@@ -31,6 +31,22 @@
     /* The "important" notice level has no Bootstrap colour of its own; this badge matches
        the purple its banner uses on the builder page. */
     .bg-purple { background:#a371f7; color:#0d1117; }
+    /* Confirmation popover for the per-build actions. It opens against the link that was
+       clicked so the button is a few pixels away, instead of a browser confirm() at the top
+       of the window. Fixed positioning, so it needs no scroll maths; admin.js keeps it on
+       the anchor and holds off the 10s refresh while it is open. */
+    .cpop { position:fixed; z-index:1080; max-width:min(20rem,calc(100vw - 1rem)); background:#161b22;
+            border:1px solid #30363d; border-radius:.5rem; box-shadow:0 8px 24px rgba(0,0,0,.5);
+            padding:.55rem .65rem; font-size:.8rem; line-height:1.4; color:#dee2e6; }
+    .cpop-row { display:flex; align-items:center; gap:.4rem; margin-top:.45rem; }
+    .cpop-x { margin-inline-start:auto; border:0; background:transparent; color:#8b949e; font-size:1rem;
+              line-height:1; padding:0 .2rem; cursor:pointer; }
+    .cpop-x:hover { color:#dee2e6; }
+    .cpop::after { content:""; position:absolute; width:9px; height:9px; background:#161b22;
+                   border-left:1px solid #30363d; border-top:1px solid #30363d; transform:rotate(45deg);
+                   top:-5px; left:var(--cpop-arrow,1rem); }
+    .cpop.above::after { top:auto; bottom:-5px; border-left:0; border-top:0;
+                         border-right:1px solid #30363d; border-bottom:1px solid #30363d; }
   </style>
 </head>
 <body class="p-3">

@@ -6,6 +6,7 @@ const $=id=>document.getElementById(id);
 const short=s=>s?String(s).slice(0,8):'';
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const ipExpanded=new Set();
+let cpop=null;   // the open confirm popover, if any; declared here so refresh() below can drop it
 // Origin flag for an ISO 3166-1 alpha-2 code (two regional-indicator codepoints, so no
 // image assets). Cloudflare's pseudo-codes ("XX" unknown, "T1" Tor) and anything else
 // non-alphabetic render as the bare code instead of a bogus flag.
@@ -80,6 +81,9 @@ let srvVer=null;
 const showAll={builds:false,events:false};
 const allQs=()=>{ const p=Object.keys(showAll).filter(k=>showAll[k]); return p.length?'?all='+p.join(','):''; };
 async function refresh(){
+  // Re-rendering the tables destroys the row a confirm popover is anchored to, so drop it.
+  // The 10s poll skips refreshing entirely while one is open; this covers every other caller.
+  closeConfirm(false);
   let d; try{ d=await adminGet(); }catch(e){ if(e&&e.auth){ logout(); } else if(e&&e.cap){ showCap(true); } return; }
   showCap(false);
   // Version handshake: reload once when a deploy changes the server version, so open
@@ -258,11 +262,60 @@ document.addEventListener('click',ev=>{ const x=ev.target.closest('.more-toggle'
   const w=x.dataset.which; if(w in showAll){ showAll[w]=!showAll[w]; refresh(); } });
 // Click an IP to toggle between the full address and its /64 (v4 /32) bucket.
 document.addEventListener('click',ev=>{ const c=ev.target.closest('.ipc'); if(!c) return; const f=c.dataset.full; if(ipExpanded.has(f)) ipExpanded.delete(f); else ipExpanded.add(f); c.textContent=ipExpanded.has(f)?c.dataset.bucket:c.dataset.full; });
+/* Confirm a destructive row action in a popover anchored to the link that was clicked, so
+ * the pointer travels a few pixels instead of up to a browser confirm() at the top of the
+ * window. Resolves true only if the action button is used; the x, a click elsewhere, Escape
+ * and a second popover all resolve false. Only one is ever open (`cpop`), which is also what
+ * holds off the 10s refresh: that rewrites the table, and the anchor with it. */
+function closeConfirm(ok){ if(!cpop) return; const {el,done,off}=cpop; cpop=null; off(); el.remove(); done(ok); }
+function askConfirm(anchor,message,actionLabel){
+  closeConfirm(false);
+  return new Promise(done=>{
+    const el=document.createElement('div');
+    el.className='cpop';
+    el.innerHTML=`<div></div><div class="cpop-row"><button type="button" class="btn btn-sm btn-danger py-0 cpop-go"></button>`+
+                 `<button type="button" class="cpop-x" aria-label="${esc(I18N.t('limits_cancel'))}">&times;</button></div>`;
+    el.firstChild.textContent=message;                       // admin-facing, but never as markup
+    el.querySelector('.cpop-go').textContent=actionLabel;
+    document.body.appendChild(el);
+
+    // Sit under the anchor, or above it when there is no room below, and keep the arrow on
+    // the anchor even after the box has been clamped inside the viewport.
+    const place=()=>{
+      const a=anchor.getBoundingClientRect(), b=el.getBoundingClientRect();
+      const above=a.bottom+b.height+10>innerHeight && a.top-b.height-10>0;
+      const cx=a.left+a.width/2;
+      const left=Math.max(6,Math.min(cx-b.width/2,innerWidth-b.width-6));
+      el.classList.toggle('above',above);
+      el.style.left=left+'px';
+      el.style.top=(above?a.top-b.height-6:a.bottom+6)+'px';
+      el.style.setProperty('--cpop-arrow',Math.max(8,Math.min(cx-left,b.width-14))+'px');
+    };
+    place();
+    const onKey=e=>{ if(e.key==='Escape'){ e.preventDefault(); closeConfirm(false); } };
+    // The click that opened this popover is still propagating, so ignore anything inside it
+    // and let the current event finish before the outside-click listener starts to matter.
+    const onDoc=e=>{ if(!el.contains(e.target)) closeConfirm(false); };
+    const off=()=>{ removeEventListener('keydown',onKey); removeEventListener('scroll',place,true);
+                    removeEventListener('resize',place); removeEventListener('click',onDoc,true); };
+    cpop={el,done,off};
+    addEventListener('keydown',onKey);
+    addEventListener('scroll',place,true);
+    addEventListener('resize',place);
+    setTimeout(()=>{ if(cpop&&cpop.el===el) addEventListener('click',onDoc,true); },0);
+    el.querySelector('.cpop-go').addEventListener('click',()=>closeConfirm(true));
+    el.querySelector('.cpop-x').addEventListener('click',()=>closeConfirm(false));
+    el.querySelector('.cpop-go').focus();
+  });
+}
 // Per-build admin action: cancel (active) or remove artifact+run (finished).
 document.addEventListener('click',async ev=>{ const x=ev.target.closest('.bact'); if(!x) return; ev.preventDefault();
-  const act=x.dataset.act, id=x.dataset.id;
-  if(!confirm(act==='cancel'?I18N.t('confirm_cancel_build',{id:id.slice(0,8)}):I18N.t('confirm_remove_build',{id:id.slice(0,8)}))) return;
-  try{ await fetch(API+'/api/admin/'+(act==='cancel'?'cancel':'expire')+'/'+id,{method:'POST',headers:{Authorization:'Bearer '+tok()}}); }catch{}
+  const act=x.dataset.act, id=x.dataset.id, cancel=act==='cancel';
+  const ok=await askConfirm(x,
+    I18N.t(cancel?'confirm_cancel_build':'confirm_remove_build',{id:id.slice(0,8)}),
+    I18N.t(cancel?'title_cancel_build':'act_remove'));
+  if(!ok) return;
+  try{ await fetch(API+'/api/admin/'+(cancel?'cancel':'expire')+'/'+id,{method:'POST',headers:{Authorization:'Bearer '+tok()}}); }catch{}
   refresh(); });
 // Remove an admin user (master only).
 document.addEventListener('click',async ev=>{ const x=ev.target.closest('.deluser'); if(!x) return; ev.preventDefault();
@@ -302,5 +355,6 @@ else if(tok()&&!idledOut()){ adminGet().then(show).catch(e=>{ if(e&&e.auth) loca
 gateVersion();
 // Poll gently: 10s, and not at all while the tab is hidden (idle background admin tabs
 // were burning the free request quota); refresh immediately when the tab comes back.
-setInterval(()=>{ if(document.hidden) return; if($('app').style.display!=='none'&&!idledOut()) refresh(); },10000);
+// An open confirm popover holds the poll off: refreshing would rewrite the table under it.
+setInterval(()=>{ if(document.hidden||cpop) return; if($('app').style.display!=='none'&&!idledOut()) refresh(); },10000);
 document.addEventListener('visibilitychange',()=>{ if(!document.hidden&&$('app').style.display!=='none'&&!idledOut()) refresh(); });
