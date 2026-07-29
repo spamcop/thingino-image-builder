@@ -38,11 +38,13 @@
       0%, 12%, 100% { border-color: var(--bs-alert-border-color); }
       5%            { border-color: currentColor; }
     }
+    /* The sweep's geometry lives in custom properties so rtl.css can mirror it by flipping
+       three values, instead of restating the keyframes and the animation. */
     @keyframes notice-sheen {
-      0%          { background-position: -150% 0; }
-      2.5%, 100%  { background-position: 250% 0; }
+      0%          { background-position: var(--sweep-from) 0; }
+      2.5%, 100%  { background-position: var(--sweep-to) 0; }
     }
-    #notice.pulse { background-image:linear-gradient(100deg,transparent 42%,color-mix(in srgb,currentColor 16%,transparent) 50%,transparent 58%); background-size:250% 100%; background-repeat:no-repeat; background-position:-150% 0; animation:notice-edge 15s ease-in-out infinite, notice-sheen 60s linear infinite; }
+    #notice.pulse { --sweep-angle:100deg; --sweep-from:-150%; --sweep-to:250%; background-image:linear-gradient(var(--sweep-angle),transparent 42%,color-mix(in srgb,currentColor 16%,transparent) 50%,transparent 58%); background-size:250% 100%; background-repeat:no-repeat; background-position:var(--sweep-from) 0; animation:notice-edge 15s ease-in-out infinite, notice-sheen 60s linear infinite; }
     /* What Bootstrap does to every animation it ships, and the notice must read fine without it. */
     @media (prefers-reduced-motion:reduce) { #notice.pulse { animation:none; } }
     @media (max-width:576px){ body{ padding:.5rem !important; } }

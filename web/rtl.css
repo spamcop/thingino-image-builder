@@ -27,6 +27,14 @@
 [dir="rtl"] .input-group > :not(:first-child) { border-radius: .375rem 0 0 .375rem; }
 [dir="rtl"] .input-group > :first-child { border-radius: 0 .375rem .375rem 0; }
 
+/* The notice banner's light sweep travels with the text, so it crosses right to left
+ * here. Mirroring means both the direction of travel and the band's lean: 260deg is
+ * 100deg reflected about the vertical (360 - 100), verified against the same band
+ * flipped with scaleX(-1). Only these three custom properties change; the keyframes
+ * and the animation itself stay single-sourced in index.html. The border half of the
+ * pulse needs nothing, border-color has no direction. */
+[dir="rtl"] #notice.pulse { --sweep-angle: 260deg; --sweep-from: 250%; --sweep-to: -150%; }
+
 /* Technical Latin tokens (defconfig, build id, commit, URLs) stay LTR so they
  * read correctly embedded in RTL sentences. */
 [dir="rtl"] code, [dir="rtl"] #version, [dir="rtl"] #commit-badge { direction: ltr; unicode-bidi: isolate; }
