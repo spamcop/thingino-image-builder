@@ -201,7 +201,11 @@
       // still carries it leaves the loops running and the 15s/60s cadence survives every
       // poll. Dropping it and re-adding it separately would restart the pulse each time.
       nb.className='alert '+NOTICE[lvl].cls+' py-2 small pulse';
-      nb.innerHTML='<i class="bi bi-'+NOTICE[lvl].icon+' me-1"></i><b class="notice-label me-1"></b><span class="notice-text"></span>';
+      // dir="auto" on the text only: the admin writes the notice in their own language, so
+      // its base direction comes from its own first strong character, not from the visitor's
+      // page. Without it an English notice on an Arabic page throws its trailing punctuation
+      // to the wrong end (and an Arabic notice on an English page does the same).
+      nb.innerHTML='<i class="bi bi-'+NOTICE[lvl].icon+' me-1"></i><b class="notice-label me-1"></b><span class="notice-text" dir="auto"></span>';
       nb.querySelector('.notice-label').textContent=I18N.t('notice_'+lvl);
       nb.querySelector('.notice-text').textContent=n.text;
     } else { nb.className='alert py-2 small d-none'; nb.textContent=''; }
