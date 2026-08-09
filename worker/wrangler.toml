@@ -11,7 +11,7 @@ crons = ["* * * * *"]
 [[d1_databases]]
 binding = "DB"
 database_name = "thingino-builder"
-database_id = "5e72dc96-8856-4418-b59f-d872bca8330f"
+database_id = "6a4691c0-2a43-408f-9954-f01e585f8b5d"
 
 # Per-IP request throttle in FRONT of /api/build's D1 work, so a flood can't exhaust
 # the free D1 budget (audit F12). A Durable Object (one instance per IP) gives a
