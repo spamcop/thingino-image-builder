@@ -122,14 +122,15 @@
     <span class="small muted ms-auto" id="upd-extra"></span>
   </div></div>
 
-  <div class="card mb-3" id="users-card" style="display:none"><div class="card-body">
-    <div class="d-flex align-items-center gap-2 mb-2 flex-wrap">
-      <span class="small muted text-uppercase" data-i18n="users_title">Admin users</span>
+  <div class="card mb-3" id="users-card" style="display:none">
+    <div class="card-header d-flex align-items-center gap-2 flex-wrap">
+      <h2 class="card-title fs-6 mb-0"><i class="bi bi-people me-1"></i> <span data-i18n="users_title">Admin users</span></h2>
       <div class="input-group input-group-sm ms-auto" style="max-width:340px">
         <input id="invite-user" class="form-control" placeholder="new username" data-i18n-ph="invite_user_ph">
         <button id="invite-btn" class="btn btn-thingino" data-i18n="invite_btn">Invite</button>
       </div>
     </div>
+    <div class="card-body">
     <div id="invite-link" class="small mb-2"></div>
     <div class="table-responsive"><table class="table table-sm align-middle mb-0">
       <thead><tr><th data-i18n="th_username">username</th><th data-i18n="th_state">state</th><th data-i18n="th_last_login">last login</th><th data-i18n="th_privileges">privileges</th><th></th></tr></thead>
@@ -139,8 +140,9 @@
 
   <!-- One notice at a time, separate from the builds-disabled banner. Hidden unless this
        admin holds edit_notice (or is master), like the users card above it. -->
-  <div class="card mb-3" id="notice-card" style="display:none"><div class="card-body">
-    <h2 class="card-title fs-6 mb-1"><i class="bi bi-megaphone me-1"></i> <span data-i18n="notice_title">Notice banner</span></h2>
+  <div class="card mb-3" id="notice-card" style="display:none">
+    <div class="card-header"><h2 class="card-title fs-6 mb-0"><i class="bi bi-megaphone me-1"></i> <span data-i18n="notice_title">Notice banner</span></h2></div>
+    <div class="card-body">
     <div class="small muted mb-2" data-i18n="notice_hint">Shown to every visitor on the builder page, exactly as written, in whatever language you write it.</div>
     <textarea id="notice-text" class="form-control form-control-sm mb-2" rows="2" maxlength="500" data-i18n-ph="notice_ph"></textarea>
     <div class="d-flex align-items-end gap-2 flex-wrap">
@@ -172,14 +174,15 @@
     <div class="small mt-2" id="notice-state"></div>
   </div></div>
 
-  <div class="card mb-3"><div class="card-body">
-    <div class="d-flex align-items-center gap-2 mb-2">
-      <span class="small muted text-uppercase" data-i18n="limits_title">Limits</span>
+  <div class="card mb-3">
+    <div class="card-header d-flex align-items-center gap-2 flex-wrap">
+      <h2 class="card-title fs-6 mb-0"><i class="bi bi-sliders me-1"></i> <span data-i18n="limits_title">Limits</span></h2>
       <button id="limits-edit" class="btn btn-sm btn-outline-secondary ms-auto" data-i18n="limits_edit">Edit</button>
       <button id="limits-save" class="btn btn-sm btn-thingino ms-auto" style="display:none" data-i18n="limits_save">Save</button>
       <button id="limits-cancel" class="btn btn-sm btn-outline-secondary" style="display:none" data-i18n="limits_cancel">Cancel</button>
       <span class="small muted" id="limits-msg"></span>
     </div>
+    <div class="card-body">
     <div id="limits-view" class="small">…</div>
     <div id="limits-fields" class="row g-2" style="display:none">
       <div class="col-4 col-md-2"><label class="form-label small muted mb-0" data-i18n="lim_user_hourly">per-user/hr</label><input id="lim-userHourly" type="number" min="1" class="form-control form-control-sm"></div>
