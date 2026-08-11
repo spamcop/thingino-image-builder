@@ -35,7 +35,11 @@ CREATE TABLE IF NOT EXISTS events (
   ip_bucket TEXT,
   ip_full TEXT,
   country TEXT,  -- as on builds
-  detail TEXT
+  detail TEXT,
+  -- Which app the person logged in through, on admin_login_* rows only. An audit label and
+  -- nothing else: it is supplied by the caller, so it must never reach an authorization
+  -- decision or change any behaviour. See loginApp() in src/index.js.
+  app TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_events_ts ON events(ts);
 CREATE INDEX IF NOT EXISTS idx_events_kind_ip_ts ON events(kind, ip_bucket, ts);

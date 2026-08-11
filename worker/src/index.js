@@ -115,9 +115,32 @@ const getSetting = async (env, key) => {
 const setSetting = (env, key, value) =>
   env.DB.prepare("INSERT INTO settings(key,value) VALUES(?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value")
     .bind(key, value).run();
-const logEvent = (env, kind, build_id, uid, ip, detail, ipFull, country) =>
-  env.DB.prepare("INSERT INTO events(ts,kind,build_id,uid,ip_bucket,ip_full,detail,country) VALUES(?,?,?,?,?,?,?,?)")
-    .bind(nowSec(), kind, build_id || null, uid || null, ip || null, ipFull || null, detail || "", country || null).run();
+const logEvent = (env, kind, build_id, uid, ip, detail, ipFull, country, app) =>
+  env.DB.prepare("INSERT INTO events(ts,kind,build_id,uid,ip_bucket,ip_full,detail,country,app) VALUES(?,?,?,?,?,?,?,?,?)")
+    .bind(nowSec(), kind, build_id || null, uid || null, ip || null, ipFull || null, detail || "", country || null, app || null).run();
+
+// Which app a person logged in through, recorded on admin_login_* rows so an audit trail can be
+// scoped to one of them. Read this before using it anywhere else: it is asserted by the caller,
+// so it is a LABEL. It must never reach an authorization decision and must never change
+// behaviour (no per-app throttling, no per-app session TTL). The moment anything forks on it, a
+// caller picks its own branch by typing a different word.
+//
+// Origin first: a browser sets it and page script cannot forge it, so a real browser cannot
+// misreport its door. The body field is only the fallback for a caller that sends none. Anything
+// outside the allowlist is stored as null rather than kept, so this column cannot be filled with
+// arbitrary caller text one row per attempt.
+const APP_ALLOW = new Set(["builder", "tb"]);
+const APP_ORIGINS = {
+  "https://image-builder.thingino.com": "builder",
+  "https://thingino-image-builder-1d2e9b23.thingino.workers.dev": "builder",
+  "https://tb.thingino.workers.dev": "tb",
+};
+function loginApp(request, body) {
+  const byOrigin = APP_ORIGINS[request.headers.get("Origin") || ""];
+  if (byOrigin) return byOrigin;
+  const claimed = String((body && body.app) || "").toLowerCase();
+  return APP_ALLOW.has(claimed) ? claimed : null;
+}
 // Where the request comes from, for the admin panel's IP columns. Cloudflare geo-tags
 // every request at the edge, so this is free: no lookup, no database, no MaxMind. "XX"
 // (unknown) and "T1" (Tor) are kept as-is; the panel just shows the code for those.
@@ -810,9 +833,10 @@ async function handleAdminLogin(request, env) {
   try { body = await request.json(); } catch { return json({ error: "bad request" }, 400, env); }
   const rawIp = request.headers.get("CF-Connecting-IP") || "";
   const ip = ipBucket(rawIp);
+  const app = loginApp(request, body);
   const fails = await countQ(env, "SELECT count(*) c FROM events WHERE kind='admin_login_fail' AND ip_bucket=? AND ts > ?", ip, nowSec() - 900);
   if (fails >= 10) {
-    await logEvent(env, "admin_login_throttled", null, null, ip, "too many failed logins", rawIp, reqCountry(request));
+    await logEvent(env, "admin_login_throttled", null, null, ip, "too many failed logins", rawIp, reqCountry(request), app);
     return json({ error: "too many attempts — try again later" }, 429, env);
   }
   const totp = String(body.totp || "").trim();
@@ -854,12 +878,12 @@ async function handleAdminLogin(request, env) {
       const un = String(body.username).toLowerCase();
       failDetail = /^[a-z0-9_.-]{1,32}$/.test(un) ? `bad login (${un})` : "bad login (invalid username)";
     }
-    await logEvent(env, "admin_login_fail", null, null, ip, failDetail, rawIp, reqCountry(request));
+    await logEvent(env, "admin_login_fail", null, null, ip, failDetail, rawIp, reqCountry(request), app);
     return json({ error: "invalid credentials" }, 401, env);
   }
   const session = uuid(), ttl = 8 * 3600;
   await env.DB.prepare("INSERT INTO sessions(token,admin,expires,last_active) VALUES(?,?,?,?)").bind(await tokenHash(session), identity, nowSec() + ttl, nowSec()).run();
-  await logEvent(env, "admin_login_ok", null, null, ip, `session created (${identity})`, rawIp, reqCountry(request));
+  await logEvent(env, "admin_login_ok", null, null, ip, `session created (${identity})`, rawIp, reqCountry(request), app);
   return json({ session, expires_in: ttl, admin: identity, master: identity === "master" }, 200, env);
 }
 async function handleAdminLogout(request, env) {

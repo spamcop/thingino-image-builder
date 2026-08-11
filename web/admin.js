@@ -47,8 +47,10 @@ function setMaster(on){ masterMode=on;
 }
 async function login(){
   $('gate-err').textContent='';
-  const body=masterMode?{token:$('token').value.trim(),totp:$('totp').value.trim()}
-    :{username:$('username').value.trim().toLowerCase(),password:$('password').value,totp:$('totp').value.trim()};
+  // app is an audit label for the login event, not a credential and not a permission. The
+  // Worker prefers the Origin header and only falls back to this, so it cannot lie from a browser.
+  const body=masterMode?{token:$('token').value.trim(),totp:$('totp').value.trim(),app:'builder'}
+    :{username:$('username').value.trim().toLowerCase(),password:$('password').value,totp:$('totp').value.trim(),app:'builder'};
   const r=await fetch(API+'/api/admin/login',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body)});
   const d=await r.json().catch(()=>({}));
   if(r.ok&&d.session){ localStorage.setItem(TK,d.session); show(); }
