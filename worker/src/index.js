@@ -1012,7 +1012,12 @@ async function handleAdminStats(request, env) {
     created_ts: b.created_ts, dispatched_ts: b.dispatched_ts, finished_ts: b.finished_ts, run_id: b.run_id, uid: b.uid,
     ip: b.ip_full || b.ip_bucket, ip_bucket: b.ip_bucket, country: b.country,
   }));
-  const events = ((await env.DB.prepare("SELECT ts,kind,build_id,detail,uid,ip_bucket,ip_full,country FROM events ORDER BY id DESC LIMIT ?").bind(eLimit).all()).results || []).map((e) => ({
+  // A login through another app's sign-in page belongs on that app's page, not here, so the
+    // ones this panel shows are its own. Filtered, not deleted: the row stays in the table and
+    // stays in the 7 day window, this is only which rows the panel draws. Written as "labelled
+    // as something else" rather than "labelled builder" on purpose, so rows from before the
+    // label existed, which have no app at all, keep showing here instead of vanishing.
+    const events = ((await env.DB.prepare("SELECT ts,kind,build_id,detail,uid,ip_bucket,ip_full,country FROM events WHERE NOT (kind LIKE 'admin_login%' AND app IS NOT NULL AND app <> 'builder') ORDER BY id DESC LIMIT ?").bind(eLimit).all()).results || []).map((e) => ({
     ts: e.ts, kind: e.kind, build_id: e.build_id, detail: e.detail, uid: e.uid,
     ip: e.ip_full || e.ip_bucket, ip_bucket: e.ip_bucket, country: e.country,
   }));
@@ -1024,7 +1029,7 @@ async function handleAdminStats(request, env) {
     last24h: await countQ(env, "SELECT count(*) c FROM builds WHERE created_ts > ?", nowSec() - DAY),
     // For the "showing latest N of M kept (7 days)" lines: the builds total is the sum of
     // the state counts client-side; events need their own count. 7 matches the cron prune.
-    events_total: await countQ(env, "SELECT count(*) c FROM events"),
+    events_total: await countQ(env, "SELECT count(*) c FROM events WHERE NOT (kind LIKE 'admin_login%' AND app IS NOT NULL AND app <> 'builder')"),
     kept_days: 7,
     total_done: parseInt((await getSetting(env, "total_done")) || "0", 10),
     avg_build_secs: avg && avg.a ? Math.round(avg.a) : null,
