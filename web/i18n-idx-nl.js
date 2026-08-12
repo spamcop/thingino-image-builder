@@ -65,7 +65,7 @@ I18N.add("nl", {
   help_commit: "De exacte thingino-commit waarop deze branch staat, klik om te openen op GitHub.",
   help_lang: "Wijzig de taal van de interface (automatisch gedetecteerd uit je browser).",
   help_settings: "Instellingen: kies uit welke thingino-branch wordt gebouwd.",
-  help_branch: "Kies de thingino-branch om te bouwen: master (standaard), ciao of stable. De cameralijst wordt overeenkomstig bijgewerkt.",
+  help_branch: "Kies de thingino-branch om vanaf te bouwen. De cameralijst wordt overeenkomstig bijgewerkt.",
   setting_help_label: "Hulptips tonen: beweeg over een element voor een tip (of gebruik de knop ?).",
   privacy_link: "privacy",
   // share links (?board=&branch=) + the copy-link button
@@ -77,5 +77,6 @@ I18N.add("nl", {
   link_not_on_branch: "{board} is niet beschikbaar op {branch}.",
   link_switch: "Overschakelen naar {branch}",
   link_not_anywhere: "{board} is op geen enkele branch beschikbaar.",
+  branch_gone: "{was} wordt niet meer aangeboden, dus {branch} is nu geselecteerd.",
   dismiss_btn: "Sluiten",
 });

@@ -65,7 +65,7 @@ I18N.add("ko", {
   help_commit: "이 브랜치가 가리키는 정확한 thingino 커밋입니다. 클릭하면 GitHub에서 열립니다.",
   help_lang: "인터페이스 언어를 전환합니다(브라우저에서 자동 감지).",
   help_settings: "설정: 빌드에 사용할 thingino 브랜치를 선택합니다.",
-  help_branch: "빌드할 thingino 브랜치를 선택하세요: master(기본값), ciao 또는 stable. 카메라 목록도 그에 맞게 업데이트됩니다.",
+  help_branch: "빌드할 thingino 브랜치를 선택하세요. 카메라 목록도 그에 맞게 업데이트됩니다.",
   setting_help_label: "도움말 힌트 표시: 아무 컨트롤에나 마우스를 올리면 힌트가 표시됩니다(또는 ? 버튼 사용).",
   privacy_link: "개인정보처리방침",
   // share links (?board=&branch=) + the copy-link button
@@ -77,5 +77,6 @@ I18N.add("ko", {
   link_not_on_branch: "{board}은(는) {branch}에 없습니다.",
   link_switch: "{branch}(으)로 전환",
   link_not_anywhere: "{board}은(는) 어떤 브랜치에도 없습니다.",
+  branch_gone: "{was}은(는) 더 이상 제공되지 않아 대신 {branch}이(가) 선택되었습니다.",
   dismiss_btn: "닫기",
 });

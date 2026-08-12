@@ -65,7 +65,7 @@ I18N.add("ar", {
   help_commit: "commit الخاص بـ thingino الذي يقف عنده هذا الفرع بالضبط، انقر لفتحه على GitHub.",
   help_lang: "بدّل لغة الواجهة (تُكتشف تلقائيًا من متصفحك).",
   help_settings: "الإعدادات: اختر فرع thingino الذي تريد البناء منه.",
-  help_branch: "اختر فرع thingino المراد بناؤه: master (افتراضي) أو ciao أو stable. تتحدّث قائمة الكاميرات لتطابقه.",
+  help_branch: "اختر فرع thingino المراد البناء منه. تتحدّث قائمة الكاميرات لتطابقه.",
   setting_help_label: "إظهار تلميحات المساعدة: مرّر المؤشر فوق أي عنصر تحكم للحصول على تلميح (أو استخدم الزر ?).",
   privacy_link: "الخصوصية",
   // share links (?board=&branch=) + the copy-link button
@@ -77,5 +77,6 @@ I18N.add("ar", {
   link_not_on_branch: "{board} غير متوفرة في {branch}.",
   link_switch: "التبديل إلى {branch}",
   link_not_anywhere: "{board} غير متوفرة في أي فرع.",
+  branch_gone: "لم يعد {was} متاحًا، لذا تم اختيار {branch} بدلاً منه.",
   dismiss_btn: "إغلاق",
 });

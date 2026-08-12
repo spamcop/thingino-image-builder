@@ -7,11 +7,29 @@
   let myId=localStorage.getItem(MY_KEY)||null;
   let dismissedId=localStorage.getItem(DIS_KEY)||null;
   const setMy=id=>{ myId=id; if(id) localStorage.setItem(MY_KEY,id); else localStorage.removeItem(MY_KEY); };
-  const REFS=['master','ciao','stable'], REF_KEY='thingino_ref';
-  let curRef=REFS.includes(localStorage.getItem(REF_KEY))?localStorage.getItem(REF_KEY):'master';
+  const REF_KEY='thingino_ref', REFS_KEY='thingino_refs';
+  // Which branches the builder offers is an admin setting, delivered on every /api/stats.
+  // The last list seen is cached so the Settings dialog is populated before a return visit's
+  // first poll answers; the trio below is only the first-ever-visit seed, and matches the
+  // broker's own built-in fallback. refsKnown says whether the current list came from the
+  // broker: until it has, this page is guessing and must not tell anyone a branch is wrong.
+  let REFS=['master','ciao','stable'], DEF_REF='master', refsKnown=false;
+  try{
+    const c=JSON.parse(localStorage.getItem(REFS_KEY)||'null');
+    if(c&&Array.isArray(c.list)&&c.list.length){ REFS=c.list; DEF_REF=REFS.includes(c.def)?c.def:REFS[0]; refsKnown=true; }
+  }catch(_){}
+  let curRef=null;   // resolved by resolveRef() below, once the share link has been read
 
   let allowed=new Set(), maxConc=6, avgSecs=null, userHourly=2, retentionMins=30, curCommit=null, you=null, youAt=0;
   const ACTIVE=new Set(['queued','running','cancelling']);
+  // Poll cadence: 5s while your own build is active; idle backs off 15s -> 30s -> 60s;
+  // nothing at all while the tab is hidden. wake() snaps back to the fast cadence on user
+  // activity (typing, branch switch, tab becoming visible). Declared up here with the rest
+  // of the state, not down beside the interval that drives it: `wake` is now also reached
+  // from a stats response (applyRefs), which can land before a declaration further down has
+  // run, and a `let` read from inside its dead zone throws.
+  let wait=1, idleLvl=0;
+  function wake(now){ idleLvl=0; wait=Math.min(wait,3); if(now&&!document.hidden) refresh(true); }
 
   const fmt=s=>{ s=Math.max(0,Math.floor(s)); return `${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}`; };
   const mins=s=> s==null?'–':I18N.t('min_approx',{n:Math.max(1,Math.round(s/60))});
@@ -86,22 +104,80 @@
    * build: a link that did would let one forum post burn the global hourly cap for
    * everyone who clicked it. */
   const DEFCONFIG_RE=/^[a-z0-9_+]+$/;   // the token shape the Worker and build.yml enforce
-  let linkBoard='', linkMsg=null, linkProbed=false;
+  let linkBoard='', linkRef='', linkMsg=null, linkProbed=false;
   (function readLink(){
     const q=new URLSearchParams(location.search);
     const b=(q.get('board')||'').trim(), r=(q.get('branch')||'').trim();
     // The bad token is not echoed back into the page: it came from the URL, so it is
     // attacker-controlled, and the message reads fine without it.
     if(b){ if(DEFCONFIG_RE.test(b)) linkBoard=b; else linkMsg={k:'link_bad_board',sticky:1}; }
-    // An unknown branch is called out, not silently coerced: the API normalises anything
-    // it doesn't recognise to master, so a typo would otherwise quietly build the wrong one.
-    if(r){
-      if(REFS.includes(r)) curRef=r;
-      else if(!linkMsg) linkMsg={k:'link_bad_branch',p:{refs:REFS.join(', ')},sticky:1};
-    }
-    // The link's branch applies to this visit only: REF_KEY is deliberately left alone, so
-    // following someone's link never rewrites your own saved default.
+    // Kept raw and judged in resolveRef(): whether this branch is offered depends on a
+    // list that may not have arrived yet, and a verdict reached against the seed list
+    // above would be a guess.
+    linkRef=r;
   })();
+  // The branch this visit uses: the one a share link named, else the saved default, else
+  // the broker's. An unknown link branch is called out rather than silently coerced (the
+  // API normalises anything it doesn't recognise, so a typo would quietly build the wrong
+  // one) — but only once a real list has proved it unknown.
+  //
+  // The link's branch applies to this visit only: REF_KEY is deliberately left alone, so
+  // following someone's link never rewrites your own saved default.
+  function resolveRef(){
+    if(linkRef){
+      if(REFS.includes(linkRef)) return linkRef;
+      if(refsKnown&&!linkMsg) setLinkMsg({k:'link_bad_branch',p:{refs:esc(REFS.join(', '))},sticky:1});
+    }
+    const saved=localStorage.getItem(REF_KEY);
+    return REFS.includes(saved)?saved:DEF_REF;
+  }
+  // The offered list as it arrives on /api/stats. Runs on every poll, so it returns at the
+  // first compare unless something actually changed.
+  function applyRefs(list,def){
+    if(!Array.isArray(list)||!list.length) return;
+    const d=list.includes(def)?def:list[0];
+    if(refsKnown&&d===DEF_REF&&list.length===REFS.length&&list.every((r,i)=>r===REFS[i])) return;
+    const wasKnown=refsKnown, saved=localStorage.getItem(REF_KEY);
+    REFS=list.slice(); DEF_REF=d; refsKnown=true;
+    try{ localStorage.setItem(REFS_KEY,JSON.stringify({list:REFS,def:DEF_REF})); }catch(_){}
+    // A link branch may only now be judgeable, and a verdict reached against the seed list
+    // may only now be wrong, so re-decide it against the list we actually got.
+    if(linkMsg&&linkMsg.k==='link_bad_branch') setLinkMsg(null);
+    // Retired out from under a visitor who had explicitly chosen it. Say so and let their
+    // saved default go: quietly building a branch nobody picked is exactly what the
+    // share-link handling exists to prevent. A list we were only guessing at before proves
+    // nothing, and neither does a default that moved under someone who never chose one.
+    const retired=wasKnown&&saved&&!REFS.includes(saved);
+    if(retired) localStorage.removeItem(REF_KEY);
+    const was=curRef, want=resolveRef();
+    if(want!==was){
+      curRef=want; linkProbed=false; loadBoards(); syncUrl();
+      // The payload that carried this list was fetched for the branch we just left, so its
+      // commit is not this branch's. Hide the badge rather than relabel someone else's
+      // commit with the new branch's name, and refetch now so the gap is one round-trip
+      // instead of a poll interval.
+      const cb=$('commit-badge'); if(cb) cb.classList.add('d-none');
+      wake(true);
+      if(retired&&!linkMsg) setLinkMsg({k:'branch_gone',p:{was:esc(was),branch:esc(want)},sticky:1});
+    }
+    renderBranchOptions();
+  }
+  // The branch radios: built here, not in the markup, because which branches exist is an
+  // admin setting. Names go in as text (repo data, not ours); only the "(default)" marker
+  // is translated. Ids are positional so a name with a dot or a slash in it stays out of
+  // the id and the label's `for`.
+  function renderBranchOptions(){
+    const box=$('branch-list');
+    if(!box) return;
+    box.innerHTML=REFS.map((r,i)=>
+      '<div class="form-check" data-help="help_branch">'
+      +`<input class="form-check-input branch-radio" type="radio" name="branch" id="branch-opt-${i}" value="${esc(r)}">`
+      +`<label class="form-check-label" for="branch-opt-${i}">${esc(r)}`
+      +(r===DEF_REF?` <span class="small muted">${esc(I18N.t('branch_default'))}</span>`:'')
+      +'</label></div>').join('');
+    const els=box.querySelectorAll('.branch-radio');
+    for(let i=0;i<els.length;i++) els[i].checked=(els[i].value===curRef);
+  }
   function renderLinkMsg(){
     const m=$('linkmsg');
     if(!linkMsg){ m.classList.add('d-none'); m.innerHTML=''; return; }
@@ -123,13 +199,24 @@
   // Configs come and go per branch, so a shared camera may simply not exist on the shared
   // branch. Look for it on the others before calling it a dead end. Their lists are cached
   // per branch, so this usually costs no request at all, and only ever runs on a miss.
+  //
+  // Cached lists are free and all get checked; a cold one costs a request, so only the
+  // first few get probed, default branch first. With the branch list admin-editable this
+  // can no longer be "try them all" — the point is a helpful offer, not an exhaustive
+  // search, and twenty enabled branches would otherwise mean nineteen requests on a miss.
+  const COLD_PROBES=3;
   async function otherBranchWith(board){
-    for(const r of REFS){
-      if(r===curRef) continue;
+    const rest=REFS.filter(r=>r!==curRef).sort((a,b)=>(b===DEF_REF)-(a===DEF_REF));
+    const cold=[];
+    for(const r of rest){
       let list=null;
       try{ const c=JSON.parse(localStorage.getItem(DC_KEY(r))||'null'); if(c&&Array.isArray(c.list)) list=c.list; }catch(_){}
-      if(!list){ const res=await api('/api/defconfigs?ref='+encodeURIComponent(r)); if(res.ok&&Array.isArray(res.data)) list=res.data; }
-      if(list&&list.indexOf(board)>=0) return r;
+      if(list){ if(list.indexOf(board)>=0) return r; }
+      else cold.push(r);
+    }
+    for(const r of cold.slice(0,COLD_PROBES)){
+      const res=await api('/api/defconfigs?ref='+encodeURIComponent(r));
+      if(res.ok&&Array.isArray(res.data)&&res.data.indexOf(board)>=0) return r;
     }
     return null;
   }
@@ -281,6 +368,9 @@
     maxConc=data.max_concurrent||6; avgSecs=data.avg_build_secs; userHourly=data.user_hourly||userHourly;
     if(data.retention_secs) retentionMins=Math.max(1,Math.round(data.retention_secs/60));
     renderGlobal(data); noteCommit(data.commit);
+    // After noteCommit, deliberately: this payload was fetched for the branch this tab is
+    // on, so it belongs to that branch's cache even if the list below moves us off it.
+    applyRefs(data.branches, data.branch_default);
     if(!myId && data.you && data.you.build_id!==dismissedId){ setMy(data.you.build_id); }
     // Embedded status of our tracked build (only trust it if it was asked for us).
     if(askedMy && askedMy===myId && 'my_build' in data){
@@ -401,7 +491,7 @@
     lbl.textContent=I18N.t('share_copied');
     setTimeout(()=>{ lbl.textContent=was; },1500);
   });
-  function openSettings(){ const r=$('branch-'+curRef); if(r) r.checked=true; $('settings-overlay').classList.remove('d-none'); }
+  function openSettings(){ renderBranchOptions(); $('settings-overlay').classList.remove('d-none'); }
   function closeSettings(){ $('settings-overlay').classList.add('d-none'); }
   function saveSettings(){
     const sel=document.querySelector('.branch-radio:checked');
@@ -417,17 +507,14 @@
   $('btn-help').addEventListener('click',()=>setHelp(!helpMode));
   $('setting-help').addEventListener('change',e=>setHelp(e.target.checked));
   I18N.apply(); renderFooterLimits(); I18N.selector('lang-slot'); applyHelpMode();
-  window.addEventListener('i18nchange',()=>{ I18N.apply(); renderFooterLimits(); validate(); renderYou(); renderLinkMsg(); if(lastStatsData) renderGlobal(lastStatsData); applyHelpMode(); });
+  window.addEventListener('i18nchange',()=>{ I18N.apply(); renderFooterLimits(); validate(); renderYou(); renderLinkMsg(); renderBranchOptions(); if(lastStatsData) renderGlobal(lastStatsData); applyHelpMode(); });
   // Seed the picker from a share link before the first list load, so the board is already
   // in place when checkLink() gets to judge it against this branch.
   if(linkBoard) $('board').value=linkBoard;
+  // Now that setLinkMsg exists to carry its verdict on the link's branch.
+  curRef=resolveRef(); renderBranchOptions();
   renderLinkMsg();
   loadBoards(); refresh(true);
-  // Poll gently: 5s while your own build is active; idle backs off 15s -> 30s -> 60s;
-  // nothing at all while the tab is hidden. wake() snaps back to the fast cadence on
-  // user activity (typing, branch switch, tab becoming visible).
-  let wait=1, idleLvl=0;
-  function wake(now){ idleLvl=0; wait=Math.min(wait,3); if(now&&!document.hidden) refresh(true); }
   setInterval(()=>{
     if(document.hidden) return;
     if(you&&ACTIVE.has(you.state)){ idleLvl=0; wait=1; refresh(); return; }

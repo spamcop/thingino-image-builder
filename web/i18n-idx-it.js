@@ -65,7 +65,7 @@ I18N.add("it", {
   help_commit: "Il commit esatto di thingino su cui si trova questo ramo, clicca per aprirlo su GitHub.",
   help_lang: "Cambia la lingua dell'interfaccia (rilevata automaticamente dal tuo browser).",
   help_settings: "Impostazioni: scegli da quale ramo di thingino compilare.",
-  help_branch: "Scegli il ramo di thingino da compilare: master (predefinito), ciao o stable. L'elenco delle telecamere si aggiorna di conseguenza.",
+  help_branch: "Scegli il ramo di thingino da cui compilare. L'elenco delle telecamere si aggiorna di conseguenza.",
   setting_help_label: "Mostra i suggerimenti di aiuto: passa il cursore su qualsiasi controllo per un consiglio (o usa il pulsante ?).",
   privacy_link: "privacy",
   // share links (?board=&branch=) + the copy-link button
@@ -77,5 +77,6 @@ I18N.add("it", {
   link_not_on_branch: "{board} non è disponibile su {branch}.",
   link_switch: "Passa a {branch}",
   link_not_anywhere: "{board} non è disponibile su nessun branch.",
+  branch_gone: "{was} non è più disponibile, quindi è stato selezionato {branch}.",
   dismiss_btn: "Chiudi",
 });

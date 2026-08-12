@@ -65,7 +65,7 @@ I18N.add("de", {
   help_commit: "Der genaue thingino-Commit, auf dem dieser Branch steht, zum Öffnen auf GitHub anklicken.",
   help_lang: "Wechsle die Sprache der Oberfläche (automatisch aus deinem Browser erkannt).",
   help_settings: "Einstellungen: wähle, aus welchem thingino-Branch gebaut wird.",
-  help_branch: "Wähle den thingino-Branch zum Bauen: master (Standard), ciao oder stable. Die Kameraliste wird entsprechend aktualisiert.",
+  help_branch: "Wähle den thingino-Branch, aus dem gebaut wird. Die Kameraliste wird entsprechend aktualisiert.",
   setting_help_label: "Hilfehinweise anzeigen: fahre über ein beliebiges Element für einen Tipp (oder nutze die Schaltfläche ?).",
   privacy_link: "Datenschutz",
   // share links (?board=&branch=) + the copy-link button
@@ -77,5 +77,6 @@ I18N.add("de", {
   link_not_on_branch: "{board} ist auf {branch} nicht verfügbar.",
   link_switch: "Zu {branch} wechseln",
   link_not_anywhere: "{board} ist auf keinem Branch verfügbar.",
+  branch_gone: "{was} wird nicht mehr angeboten, daher ist jetzt {branch} ausgewählt.",
   dismiss_btn: "Schließen",
 });

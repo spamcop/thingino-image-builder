@@ -162,6 +162,13 @@ I18N.add("uk", {
   notice_none: "не опубліковано",
   notice_expires: "діє до {t}",
   priv_edit_notice: "редагувати оголошення",
+  // buildable branches (shares the Limits card's Edit/Save/Cancel + saving/saved/failed)
+  branches_title: "Доступні гілки",
+  branches_hint: "Позначте гілки, доступні відвідувачам, і вкажіть гілку за замовчуванням.",
+  branches_default: "за замовчуванням",
+  branches_missing: "немає в репозиторії",
+  branches_src: "{n} гілок у {repo}",
+  branches_none: "увімкніть щонайменше одну гілку",
   // page footer (back to the builder, repo, privacy)
   builder_link: "збірка",
   footer_link: "збирач образів thingino",

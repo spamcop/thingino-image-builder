@@ -162,6 +162,13 @@ I18N.add("pt", {
   notice_none: "nenhum publicado",
   notice_expires: "expira {t}",
   priv_edit_notice: "editar aviso",
+  // buildable branches (shares the Limits card's Edit/Save/Cancel + saving/saved/failed)
+  branches_title: "Branches compiláveis",
+  branches_hint: "Marque as branches a partir das quais os visitantes podem compilar e indique a padrão.",
+  branches_default: "padrão",
+  branches_missing: "não está no repositório",
+  branches_src: "{n} branches em {repo}",
+  branches_none: "ative pelo menos uma branch",
   // page footer (back to the builder, repo, privacy)
   builder_link: "construtor",
   footer_link: "construtor de imagens thingino",

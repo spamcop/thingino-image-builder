@@ -162,6 +162,13 @@ I18N.add("nl", {
   notice_none: "niets geplaatst",
   notice_expires: "verloopt {t}",
   priv_edit_notice: "mededeling bewerken",
+  // buildable branches (shares the Limits card's Edit/Save/Cancel + saving/saved/failed)
+  branches_title: "Bouwbare branches",
+  branches_hint: "Vink de branches aan waaruit bezoekers mogen bouwen en markeer de standaard.",
+  branches_default: "standaard",
+  branches_missing: "niet in de repository",
+  branches_src: "{n} branches in {repo}",
+  branches_none: "schakel minstens één branch in",
   // page footer (back to the builder, repo, privacy)
   builder_link: "builder",
   footer_link: "thingino Image-Builder",

@@ -27,8 +27,10 @@ browser ──POST /api/build──▶ Rust broker ──repository_dispatch─�
 
 - **Defconfig picker** over every thingino camera profile (`cameras` +
   `cameras-exp`), fetched live at the pinned commit; shows the exact commit built. A
-  **Settings** panel switches the thingino **branch** (`master` / `ciao` / `stable`),
-  and the camera list plus the `<branch>@<hash>` commit badge track the choice.
+  **Settings** panel switches the thingino **branch**, and the camera list plus the
+  `<branch>@<hash>` commit badge track the choice. Which branches are on offer is an
+  admin setting (the *Buildable branches* card picks them from the firmware repo's
+  real branch list), so the page reads them from the API rather than hardcoding them.
 - **Share links**: `?board=<defconfig>&branch=<ref>` opens the page with that
   camera and branch already selected (never auto-building), and the **Copy link**
   button produces one from the current selection. A camera that isn't on the

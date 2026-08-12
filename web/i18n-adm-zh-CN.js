@@ -162,6 +162,13 @@ I18N.add("zh-CN", {
   notice_none: "未发布",
   notice_expires: "{t} 到期",
   priv_edit_notice: "编辑公告",
+  // buildable branches (shares the Limits card's Edit/Save/Cancel + saving/saved/failed)
+  branches_title: "可构建的分支",
+  branches_hint: "勾选访问者可用于构建的分支，并标记默认分支。",
+  branches_default: "默认",
+  branches_missing: "仓库中不存在",
+  branches_src: "{repo} 上有 {n} 个分支",
+  branches_none: "请至少启用一个分支",
   // page footer (back to the builder, repo, privacy)
   builder_link: "构建页",
   footer_link: "thingino 镜像构建器",

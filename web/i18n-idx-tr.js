@@ -65,7 +65,7 @@ I18N.add("tr", {
   help_commit: "Bu dalın bulunduğu tam thingino commit'i, GitHub'da açmak için tıklayın.",
   help_lang: "Arayüz dilini değiştirir (tarayıcınızdan otomatik algılanır).",
   help_settings: "Ayarlar: hangi thingino dalından derleme yapılacağını seçin.",
-  help_branch: "Derlenecek thingino dalını seçin: master (varsayılan), ciao veya stable. Kamera listesi buna göre güncellenir.",
+  help_branch: "Derlemenin yapılacağı thingino dalını seçin. Kamera listesi buna göre güncellenir.",
   setting_help_label: "Yardım ipuçlarını göster: ipucu için herhangi bir kontrolün üzerine gelin (veya ? düğmesini kullanın).",
   privacy_link: "gizlilik",
   // share links (?board=&branch=) + the copy-link button
@@ -77,5 +77,6 @@ I18N.add("tr", {
   link_not_on_branch: "{board} {branch} dalında mevcut değil.",
   link_switch: "{branch} dalına geç",
   link_not_anywhere: "{board} hiçbir dalda mevcut değil.",
+  branch_gone: "{was} artık sunulmuyor, bu yüzden onun yerine {branch} seçildi.",
   dismiss_btn: "Kapat",
 });

@@ -130,18 +130,10 @@
         </div>
         <hr class="my-2">
         <p class="small muted mb-2" data-i18n="branch_label">thingino branch to build from:</p>
-        <div class="form-check" data-help="help_branch">
-          <input class="form-check-input branch-radio" type="radio" name="branch" id="branch-master" value="master">
-          <label class="form-check-label" for="branch-master">master <span class="small muted" data-i18n="branch_default">(default)</span></label>
-        </div>
-        <div class="form-check" data-help="help_branch">
-          <input class="form-check-input branch-radio" type="radio" name="branch" id="branch-ciao" value="ciao">
-          <label class="form-check-label" for="branch-ciao">ciao</label>
-        </div>
-        <div class="form-check" data-help="help_branch">
-          <input class="form-check-input branch-radio" type="radio" name="branch" id="branch-stable" value="stable">
-          <label class="form-check-label" for="branch-stable">stable</label>
-        </div>
+        <!-- Filled by app.js. Which branches are offered is an admin setting delivered on
+             /api/stats, so the page cannot know them at deploy time; the list it last saw
+             is cached, so this is populated before the first poll of a return visit. -->
+        <div id="branch-list"></div>
         <p class="small muted mt-3 mb-0" data-i18n="branch_note">Changes which thingino branch your firmware is built from. The camera list updates to match.</p>
         <hr class="my-2"><div class="form-check form-switch"><input class="form-check-input" type="checkbox" id="setting-help"><label class="form-check-label small" for="setting-help" data-i18n="setting_help_label">Show help hints: hover any control for a tip (or use the ? button)</label></div>
       </div>

@@ -162,6 +162,13 @@ I18N.add("ar", {
   notice_none: "لا يوجد إشعار",
   notice_expires: "ينتهي {t}",
   priv_edit_notice: "تحرير الإشعار",
+  // buildable branches (shares the Limits card's Edit/Save/Cancel + saving/saved/failed)
+  branches_title: "الفروع القابلة للبناء",
+  branches_hint: "حدّد الفروع التي يمكن للزوّار البناء منها، وعلّم الفرع الافتراضي.",
+  branches_default: "افتراضي",
+  branches_missing: "غير موجود في المستودع",
+  branches_src: "{n} فرعًا في {repo}",
+  branches_none: "فعّل فرعًا واحدًا على الأقل",
   // page footer (back to the builder, repo, privacy)
   builder_link: "المُنشئ",
   footer_link: "منشئ صور thingino",

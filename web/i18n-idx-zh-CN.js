@@ -65,7 +65,7 @@ I18N.add("zh-CN", {
   help_commit: "该分支所处的确切 thingino 提交，点击可在 GitHub 上打开。",
   help_lang: "切换界面语言（自动从你的浏览器检测）。",
   help_settings: "设置：选择用于构建的 thingino 分支。",
-  help_branch: "选择用于构建的 thingino 分支：master（默认）、ciao 或 stable。摄像头列表会相应更新。",
+  help_branch: "选择用于构建的 thingino 分支。摄像头列表会相应更新。",
   setting_help_label: "显示帮助提示：将鼠标悬停在任意控件上即可查看提示（或使用 ? 按钮）。",
   privacy_link: "隐私",
   // share links (?board=&branch=) + the copy-link button
@@ -77,5 +77,6 @@ I18N.add("zh-CN", {
   link_not_on_branch: "{branch} 分支上没有 {board}。",
   link_switch: "切换到 {branch}",
   link_not_anywhere: "任何分支上都没有 {board}。",
+  branch_gone: "{was} 已不再提供，因此改为选择 {branch}。",
   dismiss_btn: "关闭",
 });

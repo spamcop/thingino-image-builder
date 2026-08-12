@@ -162,6 +162,13 @@ I18N.add("pl", {
   notice_none: "brak opublikowanych",
   notice_expires: "wygasa {t}",
   priv_edit_notice: "edycja banera",
+  // buildable branches (shares the Limits card's Edit/Save/Cancel + saving/saved/failed)
+  branches_title: "Gałęzie do budowania",
+  branches_hint: "Zaznacz gałęzie, z których mogą budować odwiedzający, i wskaż domyślną.",
+  branches_default: "domyślna",
+  branches_missing: "brak w repozytorium",
+  branches_src: "{n} gałęzi w {repo}",
+  branches_none: "włącz co najmniej jedną gałąź",
   // page footer (back to the builder, repo, privacy)
   builder_link: "kreator",
   footer_link: "thingino kreator obrazów",

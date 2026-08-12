@@ -194,6 +194,27 @@
     </div>
   </div></div>
 
+  <!-- Which firmware branches the builder offers, and which one a visitor who has never
+       chosen gets. Shares the Limits card's privilege (edit_limits): both are "what the
+       builder will accept from a visitor", and the card is left visible either way, like
+       Limits, with the server refusing the save. -->
+  <div class="card mb-3">
+    <div class="card-header d-flex align-items-center gap-2 flex-wrap">
+      <h2 class="card-title fs-6 mb-0"><i class="bi bi-signpost-split me-1"></i> <span data-i18n="branches_title">Buildable branches</span></h2>
+      <button id="branches-edit" class="btn btn-sm btn-outline-secondary ms-auto" data-i18n="limits_edit">Edit</button>
+      <button id="branches-save" class="btn btn-sm btn-thingino ms-auto" style="display:none" data-i18n="limits_save">Save</button>
+      <button id="branches-cancel" class="btn btn-sm btn-outline-secondary" style="display:none" data-i18n="limits_cancel">Cancel</button>
+      <span class="small muted" id="branches-msg"></span>
+    </div>
+    <div class="card-body">
+    <div id="branches-view" class="small">…</div>
+    <div id="branches-fields" style="display:none">
+      <div class="small muted mb-2" data-i18n="branches_hint">Tick the branches visitors may build from, and mark the one they get by default.</div>
+      <div id="branches-list" class="row g-1"></div>
+      <div class="small muted mt-2" id="branches-src"></div>
+    </div>
+  </div></div>
+
   <div class="row g-2 mb-3" id="tiles"></div>
 
   <div class="card mb-3">

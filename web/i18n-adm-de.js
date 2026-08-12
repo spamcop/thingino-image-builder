@@ -162,6 +162,13 @@ I18N.add("de", {
   notice_none: "keiner veröffentlicht",
   notice_expires: "läuft ab {t}",
   priv_edit_notice: "Hinweis bearbeiten",
+  // buildable branches (shares the Limits card's Edit/Save/Cancel + saving/saved/failed)
+  branches_title: "Baubare Branches",
+  branches_hint: "Wähle die Branches aus, aus denen Besucher bauen dürfen, und markiere den Standard.",
+  branches_default: "Standard",
+  branches_missing: "nicht im Repository",
+  branches_src: "{n} Branches in {repo}",
+  branches_none: "mindestens einen Branch aktivieren",
   // page footer (back to the builder, repo, privacy)
   builder_link: "Builder",
   footer_link: "thingino Image-Builder",

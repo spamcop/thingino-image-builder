@@ -162,6 +162,13 @@ I18N.add("en", {
   notice_none: "none posted",
   notice_expires: "expires {t}",
   priv_edit_notice: "edit notice",
+  // buildable branches (shares the Limits card's Edit/Save/Cancel + saving/saved/failed)
+  branches_title: "Buildable branches",
+  branches_hint: "Tick the branches visitors may build from, and mark the one they get by default.",
+  branches_default: "default",
+  branches_missing: "not in the repo",
+  branches_src: "{n} branches on {repo}",
+  branches_none: "enable at least one branch",
   // page footer (back to the builder, repo, privacy)
   builder_link: "builder",
   footer_link: "thingino image builder",

@@ -65,7 +65,7 @@ I18N.add("pl", {
   help_commit: "Dokładny commit thingino, na którym jest ta gałąź; kliknij, aby otworzyć go na GitHub.",
   help_lang: "Zmień język interfejsu (wykrywany automatycznie z przeglądarki).",
   help_settings: "Ustawienia: wybierz, z której gałęzi thingino budować.",
-  help_branch: "Wybierz gałąź thingino do zbudowania: master (domyślna), ciao lub stable. Lista kamer jest odpowiednio aktualizowana.",
+  help_branch: "Wybierz gałąź thingino, z której budować. Lista kamer jest odpowiednio aktualizowana.",
   setting_help_label: "Pokaż podpowiedzi: najedź na dowolny element, aby zobaczyć wskazówkę (lub użyj przycisku ?).",
   privacy_link: "prywatność",
   // share links (?board=&branch=) + the copy-link button
@@ -77,5 +77,6 @@ I18N.add("pl", {
   link_not_on_branch: "{board} nie jest dostępna w gałęzi {branch}.",
   link_switch: "Przełącz na {branch}",
   link_not_anywhere: "{board} nie jest dostępna w żadnej gałęzi.",
+  branch_gone: "Gałąź {was} nie jest już dostępna, więc wybrano {branch}.",
   dismiss_btn: "Zamknij",
 });

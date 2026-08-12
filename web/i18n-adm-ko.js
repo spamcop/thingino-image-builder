@@ -162,6 +162,13 @@ I18N.add("ko", {
   notice_none: "게시된 공지 없음",
   notice_expires: "{t}에 만료",
   priv_edit_notice: "공지 편집",
+  // buildable branches (shares the Limits card's Edit/Save/Cancel + saving/saved/failed)
+  branches_title: "빌드 가능한 브랜치",
+  branches_hint: "방문자가 빌드할 수 있는 브랜치를 선택하고 기본값을 지정하세요.",
+  branches_default: "기본값",
+  branches_missing: "저장소에 없음",
+  branches_src: "{repo}의 브랜치 {n}개",
+  branches_none: "브랜치를 하나 이상 활성화하세요",
   // page footer (back to the builder, repo, privacy)
   builder_link: "빌더",
   footer_link: "thingino 이미지 빌더",

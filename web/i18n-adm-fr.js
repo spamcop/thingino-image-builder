@@ -162,6 +162,13 @@ I18N.add("fr", {
   notice_none: "aucun publié",
   notice_expires: "expire {t}",
   priv_edit_notice: "modifier le bandeau",
+  // buildable branches (shares the Limits card's Edit/Save/Cancel + saving/saved/failed)
+  branches_title: "Branches compilables",
+  branches_hint: "Cochez les branches que les visiteurs peuvent utiliser, et indiquez celle par défaut.",
+  branches_default: "par défaut",
+  branches_missing: "absente du dépôt",
+  branches_src: "{n} branches sur {repo}",
+  branches_none: "activez au moins une branche",
   // page footer (back to the builder, repo, privacy)
   builder_link: "générateur",
   footer_link: "générateur d'images thingino",

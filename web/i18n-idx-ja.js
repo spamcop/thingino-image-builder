@@ -65,7 +65,7 @@ I18N.add("ja", {
   help_commit: "このブランチが指す正確な thingino コミット。クリックすると GitHub で開きます。",
   help_lang: "インターフェースの言語を切り替えます（ブラウザから自動検出）。",
   help_settings: "設定：ビルドに使用する thingino ブランチを選びます。",
-  help_branch: "ビルドする thingino ブランチを選択します：master（デフォルト）、ciao、または stable。カメラ一覧もそれに合わせて更新されます。",
+  help_branch: "ビルド元の thingino ブランチを選択します。カメラ一覧もそれに合わせて更新されます。",
   setting_help_label: "ヘルプヒントを表示：任意のコントロールにカーソルを合わせるとヒントが表示されます（または ? ボタンを使用）。",
   privacy_link: "プライバシー",
   // share links (?board=&branch=) + the copy-link button
@@ -77,5 +77,6 @@ I18N.add("ja", {
   link_not_on_branch: "{board} は {branch} にはありません。",
   link_switch: "{branch} に切り替え",
   link_not_anywhere: "{board} はどのブランチにもありません。",
+  branch_gone: "{was} は提供されなくなったため、代わりに {branch} を選択しました。",
   dismiss_btn: "閉じる",
 });

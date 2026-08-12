@@ -162,6 +162,13 @@ I18N.add("ru", {
   notice_none: "не опубликовано",
   notice_expires: "действует до {t}",
   priv_edit_notice: "редактировать объявление",
+  // buildable branches (shares the Limits card's Edit/Save/Cancel + saving/saved/failed)
+  branches_title: "Доступные ветки",
+  branches_hint: "Отметьте ветки, доступные посетителям, и укажите ветку по умолчанию.",
+  branches_default: "по умолчанию",
+  branches_missing: "нет в репозитории",
+  branches_src: "{n} веток в {repo}",
+  branches_none: "включите хотя бы одну ветку",
   // page footer (back to the builder, repo, privacy)
   builder_link: "сборщик",
   footer_link: "сборщик образов thingino",

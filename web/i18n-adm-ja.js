@@ -162,6 +162,13 @@ I18N.add("ja", {
   notice_none: "未掲載",
   notice_expires: "{t} に期限切れ",
   priv_edit_notice: "お知らせ編集",
+  // buildable branches (shares the Limits card's Edit/Save/Cancel + saving/saved/failed)
+  branches_title: "ビルド可能なブランチ",
+  branches_hint: "訪問者がビルドできるブランチにチェックを入れ、既定のものを選んでください。",
+  branches_default: "既定",
+  branches_missing: "リポジトリにありません",
+  branches_src: "{repo} の {n} ブランチ",
+  branches_none: "ブランチを少なくとも 1 つ有効にしてください",
   // page footer (back to the builder, repo, privacy)
   builder_link: "ビルダー",
   footer_link: "thingino イメージビルダー",

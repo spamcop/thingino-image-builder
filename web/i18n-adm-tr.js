@@ -162,6 +162,13 @@ I18N.add("tr", {
   notice_none: "yayınlanmadı",
   notice_expires: "bitiş {t}",
   priv_edit_notice: "duyuruyu düzenle",
+  // buildable branches (shares the Limits card's Edit/Save/Cancel + saving/saved/failed)
+  branches_title: "Derlenebilir dallar",
+  branches_hint: "Ziyaretçilerin derleyebileceği dalları işaretleyin ve varsayılanı belirtin.",
+  branches_default: "varsayılan",
+  branches_missing: "depoda yok",
+  branches_src: "{repo} deposunda {n} dal",
+  branches_none: "en az bir dal etkinleştirin",
   // page footer (back to the builder, repo, privacy)
   builder_link: "oluşturucu",
   footer_link: "thingino imaj oluşturucu",

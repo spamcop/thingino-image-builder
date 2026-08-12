@@ -112,6 +112,7 @@ async function refresh(){
     $('upd-btn').style.display='none';
   }
   renderLimits(d.limits, d.usage);
+  renderBranches(d.branches);
   renderNotice(d);
   isMaster=!!d.master; if(d.master||d.manage_users){ if(!usersShown){ $('users-card').style.display=''; usersShown=true; renderUsers(); } } else $('users-card').style.display='none';
   const c=d.counts||{};
@@ -186,6 +187,74 @@ async function saveLimits(){ const v=id=>parseInt($(id).value,10);
   try{ const r=await fetch(API+'/api/admin/limits',{method:'POST',headers:{Authorization:'Bearer '+tok(),'content-type':'application/json'},body:JSON.stringify(body)}); const j=await r.json().catch(()=>({})); if(r.ok){ if(j.limits) lastLimits=j.limits; $('limits-msg').textContent=I18N.t('saved'); viewLimits(); } else $('limits-msg').textContent=j.error||I18N.t('failed'); }
   catch{ $('limits-msg').textContent=I18N.t('failed'); }
   refresh(); }
+// --- buildable branches: which firmware branches the builder offers ---------
+// The current selection rides along on admin stats, so the collapsed view stays live on the
+// 10s poll for free. The repo's own branch list is a separate call made only when someone
+// opens the card to edit, because that one costs a GitHub round-trip.
+let lastBranches=null, editingBranches=false;
+const fmtBranches=B=>(!B||!Array.isArray(B.enabled))?'…':B.enabled.map(r=>
+  `<code>${esc(r)}</code>${r===B.default?` <span class="badge bg-secondary">${esc(I18N.t('branches_default'))}</span>`:''}`).join(' &nbsp;·&nbsp; ');
+function renderBranches(B){ if(!B) return; lastBranches=B; if(!editingBranches) $('branches-view').innerHTML=fmtBranches(B); }
+async function editBranches(){
+  const B=lastBranches; if(!B) return;
+  editingBranches=true; $('branches-msg').textContent='';
+  $('branches-view').style.display='none'; $('branches-edit').style.display='none';
+  $('branches-fields').style.display=''; $('branches-save').style.display=''; $('branches-cancel').style.display='';
+  let d={};
+  try{
+    const r=await fetch(API+'/api/admin/branches',{headers:{Authorization:'Bearer '+tok()}});
+    d=await r.json().catch(()=>({}));
+    if(!r.ok) $('branches-msg').textContent=d.error||I18N.t('failed');
+  }catch{ $('branches-msg').textContent=I18N.t('failed'); }
+  const all=Array.isArray(d.all)?d.all:[];
+  // An enabled branch that has since disappeared upstream still gets a row, flagged: it has
+  // to be visible to be turned off, and it must not vanish from the save silently.
+  const rows=[...new Set([...all,...B.enabled])];
+  // Each row is boxed. Two columns side by side otherwise run the left row's "default"
+  // radio straight into the right row's tick box, and the radio reads as belonging to the
+  // branch next to it.
+  $('branches-list').innerHTML=rows.map((r,i)=>
+    '<div class="col-12 col-md-6"><div class="d-flex align-items-center gap-2 border rounded px-2 py-1">'
+    +`<input type="checkbox" class="form-check-input br-on mt-0" id="br-on-${i}" value="${esc(r)}"${B.enabled.includes(r)?' checked':''}>`
+    +`<label class="form-check-label flex-grow-1 text-truncate" for="br-on-${i}"><code>${esc(r)}</code>`
+    +(all.length&&!all.includes(r)?` <span class="badge bg-warning text-dark">${esc(I18N.t('branches_missing'))}</span>`:'')
+    +'</label>'
+    +'<label class="small muted" style="white-space:nowrap">'
+    +`<input type="radio" name="br-def" class="br-def" value="${esc(r)}"${r===B.default?' checked':''}> ${esc(I18N.t('branches_default'))}</label>`
+    +'</div></div>').join('');
+  $('branches-src').textContent=all.length?I18N.t('branches_src',{n:all.length,repo:d.repo||''}):'';
+}
+// Keep the two controls on a row agreeing: unticking the default moves it to the first
+// branch still ticked (a default nobody can build is not a default), and marking a branch
+// as the default enables it.
+function syncBranchDefault(e){
+  const t=e.target;
+  if(t.classList.contains('br-def')){
+    for(const c of document.querySelectorAll('.br-on')) if(c.value===t.value) c.checked=true;
+    return;
+  }
+  if(!t.classList.contains('br-on')) return;
+  const on=[...document.querySelectorAll('.br-on')].filter(x=>x.checked).map(x=>x.value);
+  const def=document.querySelector('.br-def:checked');
+  if(!def||on.indexOf(def.value)>=0) return;
+  def.checked=false;
+  if(on.length) for(const r of document.querySelectorAll('.br-def')) if(r.value===on[0]){ r.checked=true; break; }
+}
+function viewBranches(){ editingBranches=false;
+  $('branches-view').style.display=''; $('branches-edit').style.display='';
+  $('branches-fields').style.display='none'; $('branches-save').style.display='none'; $('branches-cancel').style.display='none';
+  if(lastBranches) $('branches-view').innerHTML=fmtBranches(lastBranches); }
+async function saveBranches(){
+  const enabled=[...document.querySelectorAll('.br-on')].filter(x=>x.checked).map(x=>x.value);
+  const sel=document.querySelector('.br-def:checked');
+  if(!enabled.length){ $('branches-msg').textContent=I18N.t('branches_none'); return; }
+  const body={enabled, default:(sel&&enabled.indexOf(sel.value)>=0)?sel.value:enabled[0]};
+  $('branches-msg').textContent=I18N.t('saving');
+  try{ const r=await fetch(API+'/api/admin/branches',{method:'POST',headers:{Authorization:'Bearer '+tok(),'content-type':'application/json'},body:JSON.stringify(body)}); const j=await r.json().catch(()=>({}));
+    if(r.ok){ lastBranches={enabled:j.enabled,default:j.default}; $('branches-msg').textContent=I18N.t('saved'); viewBranches(); }
+    else $('branches-msg').textContent=j.error||I18N.t('failed'); }
+  catch{ $('branches-msg').textContent=I18N.t('failed'); }
+  refresh(); }
 async function doUpdate(){
   const v=$('upd-btn').dataset.v||'';
   if(!confirm(I18N.t('confirm_update',{v:v?I18N.t('update_to_ver',{v:v}):''}))) return;
@@ -258,6 +327,10 @@ $('notice-clear').onclick=()=>postNotice(true);
 $('limits-edit').onclick=editLimits;
 $('limits-save').onclick=saveLimits;
 $('limits-cancel').onclick=viewLimits;
+$('branches-edit').onclick=editBranches;
+$('branches-save').onclick=saveBranches;
+$('branches-cancel').onclick=viewBranches;
+$('branches-list').addEventListener('change',syncBranchDefault);
 $('upd-btn').onclick=doUpdate;
 // Expand/collapse one recent table to the full retention window (independent per table).
 document.addEventListener('click',ev=>{ const x=ev.target.closest('.more-toggle'); if(!x) return; ev.preventDefault();

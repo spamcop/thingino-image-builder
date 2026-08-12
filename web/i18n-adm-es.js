@@ -162,6 +162,13 @@ I18N.add("es", {
   notice_none: "ninguno publicado",
   notice_expires: "caduca {t}",
   priv_edit_notice: "editar aviso",
+  // buildable branches (shares the Limits card's Edit/Save/Cancel + saving/saved/failed)
+  branches_title: "Ramas compilables",
+  branches_hint: "Marca las ramas desde las que pueden compilar los visitantes y señala la predeterminada.",
+  branches_default: "predeterminada",
+  branches_missing: "no está en el repositorio",
+  branches_src: "{n} ramas en {repo}",
+  branches_none: "habilita al menos una rama",
   // page footer (back to the builder, repo, privacy)
   builder_link: "compilador",
   footer_link: "constructor de imágenes thingino",
