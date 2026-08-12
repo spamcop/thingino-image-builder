@@ -196,12 +196,47 @@ const ghFetch = async (env, url, opts = {}) => {
   return fetch(url, { ...opts, headers: { ...ghHeaders(env, false), ...(tok ? { Authorization: `Bearer ${tok}` } : {}), ...(opts.headers || {}) } });
 };
 
+// ---- buildable branches ---------------------------------------------------
+// Which of the firmware repo's branches visitors may build from. Chosen in the admin
+// panel from the repo's real branch list and kept as ONE settings row, {enabled,default},
+// so reading it costs a single row. Only an enabled ref is buildable; anything else falls
+// back to the configured default (no arbitrary-ref fetch).
+//
+// The trio below is the fallback for a broker that has never been configured, or whose row
+// is missing/unparseable/empty, so a fresh deploy behaves exactly as it did before this was
+// configurable. It is returned as a copy: callers treat the config as theirs.
+const REF_FALLBACK = ["master", "ciao", "stable"];
+const MAX_REFS = 20;
+// A branch name we are willing to put in a settings key, a URL and a CI command line.
+// Git's own refname rules, tightened: must start alphanumeric, no "..", no "@{", no "//",
+// no trailing separator, no ".lock" component, and a length cap. Membership in `enabled`
+// is the real gate — this is the shape check for the places membership cannot be checked
+// (see dispatchBuild) and the filter that keeps a hostile settings row inert.
+const validRefName = (s) =>
+  typeof s === "string" && s.length > 0 && s.length <= 100 &&
+  /^[A-Za-z0-9][A-Za-z0-9._/-]*$/.test(s) &&
+  !/\.\.|@\{|\/\/|[./]$|\.lock(\/|$)/.test(s);
+async function refConfig(env) {
+  const raw = await getSetting(env, "branches");
+  if (raw) {
+    try {
+      const c = JSON.parse(raw);
+      const enabled = [...new Set((Array.isArray(c.enabled) ? c.enabled : []).filter(validRefName))].slice(0, MAX_REFS);
+      // An empty result means the row said nothing usable, so the built-in set stands:
+      // "no branches at all" is never a state a visitor should land in — disabling builds
+      // is what the kill switch is for.
+      if (enabled.length) return { enabled, default: enabled.includes(c.default) ? c.default : enabled[0] };
+    } catch (_) { /* fall through to the built-in set */ }
+  }
+  return { enabled: [...REF_FALLBACK], default: REF_FALLBACK[0] };
+}
+const normRefWith = (rc, ref) => (rc.enabled.includes(ref) ? ref : rc.default);
+
 // thingino pinned commit + defconfig list, per branch, cached in D1 settings (~5 min).
-// Only these refs are buildable; anything else falls back to master (no arbitrary-ref fetch).
-const ALLOWED_REFS = ["master", "ciao", "stable"];
-const normRef = (ref) => (ALLOWED_REFS.includes(ref) ? ref : "master");
-async function resolveThingino(env, ref) {
-  ref = normRef(ref);
+// `rc` lets a caller that already read the branch config pass it in, so a stats poll
+// resolves the ref and reports the list off one read instead of two.
+async function resolveThingino(env, ref, rc) {
+  ref = normRefWith(rc || (await refConfig(env)), ref);
   const kC = `thingino_commit_${ref}`, kL = `defconfigs_${ref}`, kT = `thingino_ts_${ref}`;
   const ts = parseInt((await getSetting(env, kT)) || "0", 10);
   let commit = await getSetting(env, kC);
@@ -239,6 +274,29 @@ async function fetchDefconfigs(env, repo, commit) {
   const a = await fetchDir(env, repo, commit, "cameras");
   const b = await fetchDir(env, repo, commit, "cameras-exp");
   return [...new Set([...a, ...b])].sort();
+}
+// The firmware repo's real branch list, for the admin picker and for validating a save.
+// Cached ~5 min in D1 like the commit and defconfig lookups, so opening the panel over and
+// over costs one GitHub call rather than one per open. Deliberately a single page: 100
+// bounds the parse, and a repo with more branches than that has bigger problems than this
+// picker. A failed fetch falls back to the last-good list rather than to "no branches",
+// which would otherwise read as "every branch you have enabled no longer exists".
+async function repoBranches(env) {
+  const cached = await getSetting(env, "gh_branches");
+  const ts = parseInt((await getSetting(env, "gh_branches_ts")) || "0", 10);
+  const last = () => { try { return cached ? JSON.parse(cached) : []; } catch { return []; } };
+  if (cached && nowSec() - ts < 300) return last();
+  const repo = env.THINGINO_REPO || "themactep/thingino-firmware";
+  try {
+    const r = await ghFetch(env, `https://api.github.com/repos/${repo}/branches?per_page=100`);
+    if (!r.ok) return last();
+    const arr = await r.json();
+    const list = Array.isArray(arr) ? [...new Set(arr.map((b) => b && b.name).filter(validRefName))].sort() : [];
+    if (!list.length) return last();
+    await setSetting(env, "gh_branches", JSON.stringify(list));
+    await setSetting(env, "gh_branches_ts", String(nowSec()));
+    return list;
+  } catch (_) { return last(); }
 }
 
 // ---- notice banner --------------------------------------------------------
@@ -283,7 +341,9 @@ async function handleDefconfigs(env, ref) {
 }
 async function handleStats(request, env, ref, my) {
   const uid = resolveUid(request);
-  const { commit } = await resolveThingino(env, ref);
+  // Read once, use twice: resolving the caller's ref and reporting the list to the page.
+  const rc = await refConfig(env);
+  const { commit } = await resolveThingino(env, ref, rc);
   const cfg = await limits(env);
   const avg = await env.DB.prepare("SELECT avg(finished_ts - dispatched_ts) a FROM builds WHERE (outcome='done' OR (outcome IS NULL AND state='done')) AND finished_ts IS NOT NULL AND dispatched_ts IS NOT NULL").first();
   // The expiry is admin bookkeeping, so the public payload carries only what it renders.
@@ -298,6 +358,11 @@ async function handleStats(request, env, ref, my) {
     builds_enabled: (await getSetting(env, "builds_enabled")) !== "0",
     notice: notice ? { text: notice.text, level: notice.level } : null,
     commit,
+    // The branches the page may offer, and which one a visitor who has never chosen gets.
+    // The page caches these, so the Settings dialog is populated before the first poll of
+    // a return visit; it re-resolves its selection whenever this list changes.
+    branches: rc.enabled,
+    branch_default: rc.default,
     version: env.VERSION || "v0.1.0",
     uid,
     // Embedded status of the caller's tracked build (?my=<id>), so the page needs one
@@ -315,8 +380,9 @@ async function handleBuild(request, env) {
   let body;
   try { body = await request.json(); } catch { return json({ error: "bad request" }, 400, env); }
   const defconfig = typeof body.defconfig === "string" ? body.defconfig.trim() : "";
-  const ref = normRef(body.ref);
-  const { commit, list } = await resolveThingino(env, ref);
+  const rc = await refConfig(env);
+  const ref = normRefWith(rc, body.ref);
+  const { commit, list } = await resolveThingino(env, ref, rc);
   if (!list.includes(defconfig)) return json({ error: "unknown defconfig" }, 400, env);
 
   const uid = resolveUid(request);
@@ -489,8 +555,13 @@ async function handleAdminExpire(id, request, env) {
 // ---- scheduler (cron) -----------------------------------------------------
 async function dispatchBuild(env, id, defconfig, commit, ref) {
   // ref rides along so CI can pick the matching upstream ccache channel and name the
-  // build branch; the workflow re-validates it against the same allow-list.
-  const cp = { build_id: id, defconfig, ref: normRef(ref) };
+  // build branch; the workflow re-validates its shape before it reaches a command line.
+  //
+  // Shape-checked here, NOT re-checked against the enabled set. A queued build carries the
+  // branch it was created for, and an admin who removes that branch between queue and
+  // dispatch must not silently turn it into a build of a different one: the commit is
+  // already pinned, so coercing the name would only mislabel what CI actually builds.
+  const cp = { build_id: id, defconfig, ref: validRefName(ref) ? ref : REF_FALLBACK[0] };
   if (commit) cp.commit = commit;
   const r = await ghFetch(env, `https://api.github.com/repos/${env.GITHUB_REPO}/dispatches`, {
     method: "POST",
@@ -557,7 +628,16 @@ async function schedulerStep(env) {
 }
 async function schedulerWork(env, ts) {
   const cfg = await limits(env);
-  for (const r of ALLOWED_REFS) await resolveThingino(env, r);
+  // Warm the per-branch commit + defconfig caches so visitors rarely pay the GitHub
+  // round-trip inline. This used to warm every branch, which was safe while there were
+  // exactly three of them; the list is admin-editable now, so it warms the default (where
+  // most visitors land) plus one other per tick, rotated by the clock so no cursor has to
+  // be stored. A ref left cold just means the next request for it refreshes it itself,
+  // which is already what happens whenever its 5 min TTL lapses.
+  const rc = await refConfig(env);
+  const others = rc.enabled.filter((r) => r !== rc.default);
+  for (const r of [rc.default, ...(others.length ? [others[Math.floor(ts / 60) % others.length]] : [])])
+    await resolveThingino(env, r, rc);
 
   const running = ((await env.DB.prepare("SELECT id,run_id,dispatched_ts,cancel_requested FROM builds WHERE state='running'").all()).results) || [];
   const slots = Math.max(0, cfg.maxConcurrent - running.length);
@@ -1035,6 +1115,9 @@ async function handleAdminStats(request, env) {
     avg_build_secs: avg && avg.a ? Math.round(avg.a) : null,
     max_concurrent: cfg.maxConcurrent, retention_secs: cfg.retention,
     limits: { userHourly: cfg.userHourly, ipHourly: cfg.ipHourly, globalHourly: cfg.globalHourly, maxConcurrent: cfg.maxConcurrent, maxQueue: cfg.maxQueue, retention: cfg.retention },
+    // What the branches card shows when collapsed. The repo's full branch list is a
+    // separate call, made only when someone actually opens the card to edit it.
+    branches: await refConfig(env),
     usage: {
       globalHourly: await countQ(env, "SELECT count(*) c FROM builds WHERE created_ts > ? AND NOT (state='cancelled' AND dispatched_ts IS NULL)", Math.max(nowSec() - WINDOW, parseInt((await getSetting(env, "limits_reset_ts")) || "0", 10))),
       maxConcurrent: counts.running, maxQueue: counts.queued,
@@ -1140,6 +1223,47 @@ async function handleAdminLimits(request, env) {
   await logEvent(env, "admin_limits", null, null, null, JSON.stringify(next));
   return json({ ok: true, limits: next }, 200, env);
 }
+// The branch picker's own data: the repo's real branch list alongside what is enabled now.
+// Fetched when the card is opened for editing, not on the panel's 10s poll — the current
+// selection rides along on admin stats, which is all the collapsed view needs.
+async function handleAdminBranches(request, env) {
+  if (!(await sessionAdmin(request, env))) return json({ error: "admin auth required" }, 401, env);
+  const rc = await refConfig(env);
+  return json({
+    all: await repoBranches(env),
+    repo: env.THINGINO_REPO || "themactep/thingino-firmware",
+    enabled: rc.enabled, default: rc.default,
+  }, 200, env);
+}
+// Set which branches visitors may build from. Shares the edit_limits privilege: both are
+// "what the builder will accept from a visitor", and neither can reach anyone's account.
+async function handleAdminSetBranches(request, env) {
+  const who = await sessionAdmin(request, env);
+  if (!who) return json({ error: "admin auth required" }, 401, env);
+  if (!(await adminCan(env, who, "edit_limits"))) return json({ error: "not permitted" }, 403, env);
+  let body;
+  try { body = await request.json(); } catch { return json({ error: "bad request" }, 400, env); }
+  // Non-strings are dropped rather than stringified, so this agrees with the broker's
+  // `filter_map(as_str)` on a hand-made request that puts a number in the list.
+  const want = [...new Set((Array.isArray(body.enabled) ? body.enabled : []).filter((b) => typeof b === "string"))];
+  // An empty set would leave the page with nothing to offer and every request coerced to a
+  // branch nobody picked. Turning the builder off is the kill switch's job, not this one's.
+  if (!want.length) return json({ error: "enable at least one branch" }, 400, env);
+  if (want.length > MAX_REFS) return json({ error: `at most ${MAX_REFS} branches` }, 400, env);
+  // Echoed names are capped and land in the panel via textContent, never as markup.
+  const bad = want.find((b) => !validRefName(b));
+  if (bad) return json({ error: `not a usable branch name: ${bad.slice(0, 60)}` }, 400, env);
+  // Must exist upstream: enabling a typo would offer visitors a branch whose build can only
+  // fail at checkout, minutes later. Skipped when the list is empty, which means the fetch
+  // failed rather than that the repo has no branches — no reason to block an edit on that.
+  const all = await repoBranches(env);
+  const gone = all.length ? want.find((b) => !all.includes(b)) : null;
+  if (gone) return json({ error: `no such branch: ${gone.slice(0, 60)}` }, 400, env);
+  const next = { enabled: want, default: want.includes(body.default) ? body.default : want[0] };
+  await setSetting(env, "branches", JSON.stringify(next));
+  await logEvent(env, "admin_branches", null, null, null, JSON.stringify(next));
+  return json({ ok: true, ...next }, 200, env);
+}
 
 // ---- Durable Object: per-IP rate limiter (audit F12) ----------------------
 // One instance per key (IP) → a single strongly-consistent in-memory fixed-window
@@ -1191,6 +1315,8 @@ export default {
       if (p === "/api/admin/clear-builds" && request.method === "POST") return await handleAdminClearBuilds(request, env);
       if (p === "/api/admin/reset-limits" && request.method === "POST") return await handleAdminResetLimits(request, env);
       if (p === "/api/admin/limits" && request.method === "POST") return await handleAdminLimits(request, env);
+      if (p === "/api/admin/branches" && request.method === "GET") return await handleAdminBranches(request, env);
+      if (p === "/api/admin/branches" && request.method === "POST") return await handleAdminSetBranches(request, env);
       if (p === "/api/admin/users" && request.method === "POST") return await handleAdminInvite(request, env);
       if (p === "/api/admin/users" && request.method === "GET") return await handleAdminListUsers(request, env);
       if ((m = p.match(/^\/api\/admin\/users\/([^/]+)\/disable$/)) && request.method === "POST") return await handleAdminDisableUser(m[1], request, env);

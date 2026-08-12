@@ -14,14 +14,14 @@ too; the cron only reconciles run status and runs the retention reaper.
 
 ## What it does
 
-Server-issued identity; **user-selectable thingino branch** (`master`/`ciao`/`stable`,
-allow-listed, resolved + cached per branch); per-user / per-IP (/64, via
+Server-issued identity; **user-selectable thingino branch** (from an admin-chosen set,
+resolved + cached per branch); per-user / per-IP (/64, via
 `CF-Connecting-IP`) / global hourly limits; FIFO queue + concurrency cap;
 `(defconfig, commit)` dedup;
 `repository_dispatch`; run correlation; cancel; retention reaper + DB pruning;
 audit events; and a full **admin panel** (named admins + master break-glass, all
 2FA-enforced with **single-use** codes; sensitive actions (kill switch, live limit
-editing, clear logs/builds, reset limits) are **privilege-gated** per admin, while
+and branch editing, clear logs/builds, reset limits) are **privilege-gated** per admin, while
 per-build cancel/remove + live stats stay open), sessions in D1. See
 **[Admin](#admin)** below.
 
@@ -34,19 +34,39 @@ PAT. Otherwise it falls back to a static `GITHUB_TOKEN` PAT.
 ## Branch selection
 
 The builder page carries a **Settings** gear that picks which thingino branch to build
-from: **master** (the default), **ciao**, or **stable**. The choice travels through the
-API as a `ref`: `GET /api/defconfigs?ref=<branch>`, `GET /api/stats?ref=<branch>`, and
-the `POST /api/build` body `{defconfig, ref}`. `GET /api/stats` also accepts
-`my=<build_id>`, which embeds that build's status as `my_build` (the object
-`/api/status/<id>` would return, or `null` if unknown), so the page tracks its own
-build with one request per poll instead of two. Both the Worker and the Rust broker
-validate `ref` against a fixed allow-list (`master` / `ciao` / `stable`); anything else
-quietly falls back to `master`, so a caller can never coax an arbitrary-ref fetch out of
-GitHub. Each branch resolves its own thingino commit and camera (defconfig) list, cached
-per branch, and the cron scheduler keeps all three warm. The camera list, the
-`<branch>@<hash>` commit badge (it links to that commit on GitHub), and the dispatched
-build all follow the selection. `build.yml` needs no change: it already checks out the
-commit it is handed.
+from. **Which branches it offers is an admin setting**, not a fixed list: the admin
+panel's *Buildable branches* card shows the firmware repo's real branch list (one page,
+cached ~5 min) with a tick per branch and a radio marking the one a visitor who has
+never chosen gets. It is stored as one `settings` row, `branches` =
+`{"enabled":[...],"default":"..."}`, so no schema change was needed and an
+unconfigured broker keeps the historical `master`/`ciao`/`stable` behaviour. Saving it
+shares the `edit_limits` privilege, and a save is refused if the set is empty or names a
+branch that is not in the repo.
+
+The choice travels through the API as a `ref`: `GET /api/defconfigs?ref=<branch>`,
+`GET /api/stats?ref=<branch>`, and the `POST /api/build` body `{defconfig, ref}`.
+`GET /api/stats` also accepts `my=<build_id>`, which embeds that build's status as
+`my_build` (the object `/api/status/<id>` would return, or `null` if unknown), so the
+page tracks its own build with one request per poll instead of two; it returns
+`branches` + `branch_default` too, which is how the page knows what to offer (it caches
+them, so its Settings dialog is populated before a return visit's first poll, and it
+re-resolves — and says so — if the branch someone chose is retired).
+
+Both backends coerce a `ref` that is not enabled to the configured default, so a caller
+can never coax an arbitrary-ref fetch out of GitHub. Where membership cannot be checked
+— a build queued before an admin retired its branch — the ref is shape-checked instead
+and passed through unchanged: the commit is already pinned, so coercing the name would
+only mislabel what CI actually builds. That shape check is git's own refname rules,
+tightened (must start alphanumeric, then `[A-Za-z0-9._/-]`, no `..`/`@{`/`//`, no
+trailing separator, no `.lock`, ≤100 chars), and `build.yml` re-validates it identically
+before it reaches a command line. The Worker's `validRefName` and the broker's
+`valid_ref_name` are checked against the same case table in their test suites.
+
+Each branch resolves its own thingino commit and camera (defconfig) list, cached per
+branch. The cron warms the default branch every tick plus one other, rotated by the
+clock — it used to warm all of them, which stopped being safe once the list could grow.
+The camera list, the `<branch>@<hash>` commit badge (it links to that commit on GitHub),
+and the dispatched build all follow the selection.
 
 ## Deploy
 
