@@ -944,6 +944,7 @@ async fn main() -> anyhow::Result<()> {
         .route("/api/admin/clear-builds", post(admin_clear_builds))
         .route("/api/admin/reset-limits", post(admin_reset_limits))
         .route("/api/admin/limits", post(admin_limits))
+        .route("/api/admin/branches", get(admin_branches).post(admin_set_branches))
         .route("/api/admin/update", post(admin_update))
         .route("/api/admin/users", post(admin_invite).get(admin_list_users))
         .route("/api/admin/users/{username}", delete(admin_delete_user))
@@ -1005,7 +1006,9 @@ async fn get_defconfigs(State(st): State<AppState>, Query(q): Query<RefQuery>) -
 async fn get_stats(State(st): State<AppState>, Query(q): Query<RefQuery>, headers: HeaderMap) -> Response {
     let uid = resolve_uid(&headers);
     let now_ts = now();
-    let commit = current_commit(&st, &q.req_ref).await;
+    // Read once, use twice: resolving the caller's ref and reporting the list to the page.
+    let rc = { let conn = st.db.lock(); ref_config(&conn) };
+    let commit = resolve_thingino_ref(&st, &rc.norm(&q.req_ref)).await.commit;
     let conn = st.db.lock();
     let lim = effective_limits(&conn, &st.cfg);
     let running: i64 = conn.query_row("SELECT count(*) FROM builds WHERE state='running'", [], |r| r.get(0)).unwrap_or(0);
@@ -1039,6 +1042,11 @@ async fn get_stats(State(st): State<AppState>, Query(q): Query<RefQuery>, header
         "builds_enabled": enabled,
         "notice": notice,
         "commit": commit,
+        // The branches the page may offer, and which one a visitor who has never chosen
+        // gets. The page caches these, so its Settings dialog is populated before the first
+        // poll of a return visit; it re-resolves its selection whenever this list changes.
+        "branches": rc.enabled,
+        "branch_default": rc.default_ref,
         "version": version_string(),
         "you": you,
         "uid": uid,
@@ -1066,8 +1074,10 @@ async fn post_build(
     let defconfig = req.defconfig.trim().to_string();
     // Resolve the pinned commit + defconfig list for the chosen branch; the build is then
     // dispatched/deduped against that branch's commit (stored per-build below, unchanged).
-    let thingino = resolve_thingino(&st, &req.req_ref).await;
-    let git_ref = valid_ref(&req.req_ref);
+    // One read of the branch config: it both coerces the requested branch and is what the
+    // build row records, so the stored ref is exactly the one that was resolved.
+    let git_ref = { let conn = st.db.lock(); ref_config(&conn) }.norm(&req.req_ref);
+    let thingino = resolve_thingino_ref(&st, &git_ref).await;
     if !thingino.set.contains(&defconfig) {
         return json_err(StatusCode::BAD_REQUEST, "unknown defconfig");
     }
@@ -1470,6 +1480,7 @@ async fn admin_stats(
     let now_ts = now();
     let conn = st.db.lock();
     let lim = effective_limits(&conn, &st.cfg);
+    let branch_cfg = ref_config(&conn);
     let mut counts = serde_json::Map::new();
     let mut running_n = 0i64;
     let mut queued_n = 0i64;
@@ -1532,6 +1543,9 @@ async fn admin_stats(
             "maxQueue": lim.max_queue,
             "retention": lim.retention,
         },
+        // What the branches card shows when collapsed. The repo's full branch list is a
+        // separate call, made only when someone opens the card to edit it.
+        "branches": { "enabled": branch_cfg.enabled, "default": branch_cfg.default_ref },
         "usage": {
             "globalHourly": usage_global,
             "maxConcurrent": running_n,
@@ -1812,6 +1826,81 @@ async fn admin_limits(State(st): State<AppState>, headers: HeaderMap, raw: Bytes
     log_event(&conn, "admin_limits", None, None, None, &next_str, None);
     drop(conn);
     Json(json!({ "ok": true, "limits": next })).into_response()
+}
+
+/// The branch picker's own data: the repo's real branch list alongside what is enabled now.
+/// Fetched when the card is opened for editing, not on the panel's poll — the current
+/// selection rides along on admin stats, which is all the collapsed view needs.
+async fn admin_branches(State(st): State<AppState>, headers: HeaderMap) -> Response {
+    if session_admin(&headers, &st).is_none() {
+        return json_err(StatusCode::UNAUTHORIZED, "admin auth required");
+    }
+    let rc = { let conn = st.db.lock(); ref_config(&conn) };
+    let all = repo_branches(&st).await;
+    Json(json!({
+        "all": all,
+        "repo": st.cfg.thingino_repo.clone(),
+        "enabled": rc.enabled,
+        "default": rc.default_ref,
+    }))
+    .into_response()
+}
+
+/// Set which branches visitors may build from. Shares the edit_limits privilege: both are
+/// "what the builder will accept from a visitor", and neither can reach anyone's account.
+async fn admin_set_branches(State(st): State<AppState>, headers: HeaderMap, raw: Bytes) -> Response {
+    let Some(identity) = session_admin(&headers, &st) else {
+        return json_err(StatusCode::UNAUTHORIZED, "admin auth required");
+    };
+    {
+        let conn = st.db.lock();
+        if !admin_can(&conn, &identity, "edit_limits") {
+            return json_err(StatusCode::FORBIDDEN, "not permitted");
+        }
+    }
+    let body: serde_json::Value = serde_json::from_slice(&raw).unwrap_or_else(|_| json!({}));
+    let mut want: Vec<String> = Vec::new();
+    for name in body["enabled"].as_array().unwrap_or(&Vec::new()).iter().filter_map(|e| e.as_str()) {
+        if !want.iter().any(|r| r == name) {
+            want.push(name.to_string());
+        }
+    }
+    // An empty set would leave the page with nothing to offer and every request coerced to a
+    // branch nobody picked. Turning the builder off is the kill switch's job, not this one's.
+    if want.is_empty() {
+        return json_err(StatusCode::BAD_REQUEST, "enable at least one branch");
+    }
+    if want.len() > MAX_REFS {
+        return json_err(StatusCode::BAD_REQUEST, &format!("at most {MAX_REFS} branches"));
+    }
+    // Echoed names are capped and land in the panel via textContent, never as markup.
+    let clip = |s: &str| s.chars().take(60).collect::<String>();
+    if let Some(bad) = want.iter().find(|b| !valid_ref_name(b)) {
+        return json_err(StatusCode::BAD_REQUEST, &format!("not a usable branch name: {}", clip(bad)));
+    }
+    // Must exist upstream: enabling a typo would offer visitors a branch whose build can only
+    // fail at checkout, minutes later. Skipped when the list is empty, which means the fetch
+    // failed rather than that the repo has no branches — no reason to block an edit on that.
+    let all = repo_branches(&st).await;
+    if !all.is_empty() {
+        if let Some(gone) = want.iter().find(|b| !all.contains(b)) {
+            return json_err(StatusCode::BAD_REQUEST, &format!("no such branch: {}", clip(gone)));
+        }
+    }
+    let wanted_default = body["default"].as_str().unwrap_or("");
+    let default_ref = if want.iter().any(|r| r == wanted_default) {
+        wanted_default.to_string()
+    } else {
+        want[0].clone()
+    };
+    let next = json!({ "enabled": want, "default": default_ref });
+    let next_str = next.to_string();
+    {
+        let conn = st.db.lock();
+        set_setting(&conn, "branches", &next_str);
+        log_event(&conn, "admin_branches", None, None, None, &next_str, None);
+    }
+    Json(json!({ "ok": true, "enabled": want, "default": default_ref })).into_response()
 }
 
 // --- Admin user management (master only) + invite self-enrollment ----------
@@ -2221,14 +2310,128 @@ fn query_admin_users(conn: &Connection) -> Vec<serde_json::Value> {
 
 // Public reads (no auth) so a builder-repo-scoped token needs no thingino access.
 
-/// The thingino branches the builder offers. Mirrors the frontend + Worker allow-list.
-const THINGINO_REFS: [&str; 3] = ["master", "ciao", "stable"];
+/// Which of the firmware repo's branches the builder offers. Chosen in the admin panel
+/// from the repo's real branch list and kept as ONE settings row, {enabled, default}, so
+/// reading it costs a single row. Mirrors the Worker's `refConfig` exactly, including the
+/// row's name and JSON shape: the two brokers share a database schema.
+///
+/// The trio below is the fallback for a broker that has never been configured, or whose row
+/// is missing/unparseable/empty, so a fresh deploy behaves as it did before this was
+/// configurable.
+const REF_FALLBACK: [&str; 3] = ["master", "ciao", "stable"];
+const MAX_REFS: usize = 20;
 
-/// Validate a requested branch against the allow-list. Anything not in it (including
-/// empty/missing) falls back to "master", so only a known-good ref ever reaches the
-/// GitHub API — no arbitrary-ref injection. Mirrors the Worker's ref validation.
-fn valid_ref(req: &str) -> &'static str {
-    THINGINO_REFS.into_iter().find(|&r| r == req).unwrap_or("master")
+#[derive(Clone, Debug)]
+struct RefConfig {
+    enabled: Vec<String>,
+    default_ref: String,
+}
+impl RefConfig {
+    fn fallback() -> Self {
+        Self {
+            enabled: REF_FALLBACK.iter().map(|s| (*s).to_string()).collect(),
+            default_ref: REF_FALLBACK[0].to_string(),
+        }
+    }
+    /// The requested branch if it is enabled, else the configured default. Anything not
+    /// enabled (including empty/missing) is coerced, so only an offered ref ever reaches
+    /// the GitHub API — no arbitrary-ref injection.
+    fn norm(&self, req: &str) -> String {
+        if self.enabled.iter().any(|r| r == req) { req.to_string() } else { self.default_ref.clone() }
+    }
+}
+
+/// A branch name we are willing to put in a URL and a CI command line. Git's own refname
+/// rules, tightened: must start alphanumeric (so it can never be read as an option), then
+/// letters, digits, dot, underscore, dash or slash, with none of git's illegal sequences
+/// and a length cap. Accepts exactly what the Worker's `validRefName` accepts — the charset
+/// is ASCII-only, so the byte-length cap here and its UTF-16 one agree on everything that
+/// gets past the charset check, and reject everything that does not.
+///
+/// Membership in `enabled` is the real gate; this is the shape check for the places
+/// membership cannot be checked (see `dispatch_build`) and the filter that keeps a hostile
+/// settings row inert.
+fn valid_ref_name(s: &str) -> bool {
+    !s.is_empty()
+        && s.len() <= 100
+        && s.starts_with(|c: char| c.is_ascii_alphanumeric())
+        && s.chars().all(|c| c.is_ascii_alphanumeric() || matches!(c, '.' | '_' | '/' | '-'))
+        && !s.contains("..")
+        && !s.contains("@{")
+        && !s.contains("//")
+        && !s.ends_with('.')
+        && !s.ends_with('/')
+        && !s.ends_with(".lock")
+        && !s.contains(".lock/")
+}
+
+/// Read the branch config. An empty result means the row said nothing usable, so the
+/// built-in set stands: "no branches at all" is never a state a visitor should land in —
+/// turning the builder off is the kill switch's job.
+fn ref_config(conn: &Connection) -> RefConfig {
+    let Some(raw) = get_setting(conn, "branches") else { return RefConfig::fallback() };
+    let Ok(v) = serde_json::from_str::<serde_json::Value>(&raw) else { return RefConfig::fallback() };
+    let mut enabled: Vec<String> = Vec::new();
+    for name in v["enabled"].as_array().unwrap_or(&Vec::new()).iter().filter_map(|e| e.as_str()) {
+        if valid_ref_name(name) && !enabled.iter().any(|r| r == name) {
+            enabled.push(name.to_string());
+        }
+    }
+    enabled.truncate(MAX_REFS);
+    if enabled.is_empty() {
+        return RefConfig::fallback();
+    }
+    let want = v["default"].as_str().unwrap_or("");
+    let default_ref = if enabled.iter().any(|r| r == want) { want.to_string() } else { enabled[0].clone() };
+    RefConfig { enabled, default_ref }
+}
+
+/// The firmware repo's real branch list, for the admin picker and for validating a save.
+/// Cached ~5 min in settings like the commit and defconfig lookups, so opening the panel
+/// over and over costs one GitHub call rather than one per open. Deliberately a single
+/// page: 100 bounds the parse, and a repo with more branches than that has bigger problems
+/// than this picker. A failed fetch falls back to the last-good list rather than to "no
+/// branches", which would otherwise read as "every branch you have enabled is gone".
+async fn repo_branches(st: &AppState) -> Vec<String> {
+    let (cached, ts) = {
+        let conn = st.db.lock();
+        (
+            get_setting(&conn, "gh_branches"),
+            get_setting(&conn, "gh_branches_ts").and_then(|v| v.parse::<i64>().ok()).unwrap_or(0),
+        )
+    };
+    let last = || -> Vec<String> {
+        cached.as_deref().and_then(|s| serde_json::from_str(s).ok()).unwrap_or_default()
+    };
+    if cached.is_some() && now() - ts < THINGINO_CACHE_SECS {
+        return last();
+    }
+    let url = format!("https://api.github.com/repos/{}/branches?per_page=100", st.cfg.thingino_repo);
+    let Ok(resp) = gh(st.http.get(&url).bearer_auth(github_token(st).await)).send().await else {
+        return last();
+    };
+    let Ok(v) = resp.json::<serde_json::Value>().await else { return last() };
+    let mut list: Vec<String> = v
+        .as_array()
+        .map(|a| {
+            a.iter()
+                .filter_map(|e| e["name"].as_str())
+                .filter(|n| valid_ref_name(n))
+                .map(|s| s.to_string())
+                .collect()
+        })
+        .unwrap_or_default();
+    list.sort();
+    list.dedup();
+    if list.is_empty() {
+        return last();
+    }
+    {
+        let conn = st.db.lock();
+        set_setting(&conn, "gh_branches", &serde_json::to_string(&list).unwrap_or_default());
+        set_setting(&conn, "gh_branches_ts", &now().to_string());
+    }
+    list
 }
 
 /// Latest commit sha on a (validated) branch of the thingino repo.
@@ -2277,12 +2480,18 @@ async fn fetch_defconfigs(st: &AppState, commit: &str) -> Option<Vec<String>> {
 }
 
 /// Resolve thingino's pinned commit + the defconfig list at that commit for the chosen
-/// branch, cached per-branch (~5 min TTL). `req_ref` is validated to master/ciao/stable
-/// first, so only a known-good ref hits the GitHub API. The list is re-fetched only when
-/// that branch's commit moves; on any failure the last-good per-branch cache (seeded from
+/// branch, cached per-branch (~5 min TTL). `req_ref` is coerced to an enabled branch first,
+/// so only an offered ref hits the GitHub API. The list is re-fetched only when that
+/// branch's commit moves; on any failure the last-good per-branch cache (seeded from
 /// defconfigs.json on first miss) is kept.
 async fn resolve_thingino(st: &AppState, req_ref: &str) -> Thingino {
-    let git_ref = valid_ref(req_ref);
+    let rc = { let conn = st.db.lock(); ref_config(&conn) };
+    resolve_thingino_ref(st, &rc.norm(req_ref)).await
+}
+
+/// The body of the above, for a caller that has already coerced the ref against a branch
+/// config it holds — so a stats poll reads that config once instead of twice.
+async fn resolve_thingino_ref(st: &AppState, git_ref: &str) -> Thingino {
     // Fast path: a fresh cached entry for this branch.
     {
         let map = st.thingino.lock();
@@ -2329,11 +2538,6 @@ async fn resolve_thingino(st: &AppState, req_ref: &str) -> Thingino {
     t.clone()
 }
 
-/// The thingino commit builds on the chosen branch will use (pinned).
-async fn current_commit(st: &AppState, req_ref: &str) -> Option<String> {
-    resolve_thingino(st, req_ref).await.commit
-}
-
 async fn scheduler_loop(st: AppState) {
     let mut tick = tokio::time::interval(Duration::from_secs(10));
     loop {
@@ -2363,9 +2567,18 @@ type QueuedBuild = (String, String, Option<String>, Option<String>);
 
 async fn scheduler_step(st: &AppState) -> anyhow::Result<()> {
     let now_ts = now();
-    // Keep every branch's commit + defconfig list warm (picks up new boards per branch).
-    for r in THINGINO_REFS {
-        let _ = resolve_thingino(st, r).await;
+    // Keep the branch caches warm (picks up new boards per branch). This used to warm every
+    // branch, which was safe while there were exactly three of them; the list is
+    // admin-editable now, so it warms the default (where most visitors land) plus one other
+    // per tick, rotated by the clock so no cursor has to be stored. A ref left cold just
+    // means the next request for it refreshes it itself, which is already what happens
+    // whenever its TTL lapses. Mirrors the Worker's cron.
+    let rc = { let conn = st.db.lock(); ref_config(&conn) };
+    let others: Vec<&String> = rc.enabled.iter().filter(|r| **r != rc.default_ref).collect();
+    let _ = resolve_thingino_ref(st, &rc.default_ref).await;
+    if !others.is_empty() {
+        let pick = ((now_ts / 60).rem_euclid(others.len() as i64)) as usize;
+        let _ = resolve_thingino_ref(st, others[pick]).await;
     }
     let lim = { let conn = st.db.lock(); effective_limits(&conn, &st.cfg) };
 
@@ -2658,9 +2871,15 @@ async fn dispatch_build(st: &AppState, build_id: &str, defconfig: &str, commit: 
     if let Some(c) = commit {
         cp.insert("commit".into(), json!(c));
     }
-    // Branch name rides along so CI can pick the matching upstream ccache channel and
-    // name the build branch; the workflow re-validates it against the same allow-list.
-    cp.insert("ref".into(), json!(valid_ref(git_ref.unwrap_or("master"))));
+    // Branch name rides along so CI can pick the matching upstream ccache channel and name
+    // the build branch; the workflow re-validates its shape before it reaches a command line.
+    //
+    // Shape-checked here, NOT re-checked against the enabled set. A queued build carries the
+    // branch it was created for, and an admin who removes that branch between queue and
+    // dispatch must not silently turn it into a build of a different one: the commit is
+    // already pinned, so coercing the name would only mislabel what CI actually builds.
+    let cp_ref = git_ref.filter(|r| valid_ref_name(r)).unwrap_or(REF_FALLBACK[0]);
+    cp.insert("ref".into(), json!(cp_ref));
     let payload = json!({ "event_type": "web-build", "client_payload": cp });
     let resp = gh(st.http.post(&url).bearer_auth(github_token(st).await)).json(&payload).send().await?;
     if resp.status().is_success() {
@@ -2746,6 +2965,86 @@ mod pbkdf2_tests {
         // The timing dummy must carry the current count too (enumeration guard).
         assert_eq!(hash_iters(DUMMY_PW_HASH), PBKDF2_ITERS, "dummy must track PBKDF2_ITERS");
         assert!(!verify_password("anything", DUMMY_PW_HASH), "dummy never matches");
+    }
+}
+
+#[cfg(test)]
+mod branch_tests {
+    use super::*;
+
+    /// The exact case list the Worker's validRefName is checked against, so the two
+    /// implementations are known to accept and reject the same names. A branch either
+    /// backend would take but the other would not is a build that succeeds on one and
+    /// 400s on the other, from the same admin click.
+    #[test]
+    fn ref_name_matches_the_worker() {
+        for s in [
+            "master", "ciao", "stable", "unstable", "piuma", "figata",
+            "piuma-fixed-partitions", "feature/secureboop", "fix/shell-injection-send2",
+            "v1.2.3", "a",
+        ] {
+            assert!(valid_ref_name(s), "should accept {s:?}");
+        }
+        for s in [
+            "", "-rf", "--upload-pack=x", "/master", "master/", "a..b", "ref@{0}", "a//b",
+            "master.lock", "feature/x.lock", "with space", "semi;rm -rf /", "$(id)",
+            "back\\slash", "tab\there", "über", "master.",
+        ] {
+            assert!(!valid_ref_name(s), "should reject {s:?}");
+        }
+        assert!(valid_ref_name(&"x".repeat(100)));
+        assert!(!valid_ref_name(&"x".repeat(101)));
+    }
+
+    fn cfg_from(row: Option<&str>) -> RefConfig {
+        let conn = Connection::open_in_memory().unwrap();
+        conn.execute("CREATE TABLE settings(key TEXT PRIMARY KEY, value TEXT)", []).unwrap();
+        if let Some(v) = row {
+            set_setting(&conn, "branches", v);
+        }
+        ref_config(&conn)
+    }
+
+    /// Same table the Worker's refConfig is checked against.
+    #[test]
+    fn config_falls_back_and_normalises_like_the_worker() {
+        let fb: Vec<String> = REF_FALLBACK.iter().map(|s| (*s).to_string()).collect();
+        for (name, row) in [
+            ("unset row", None),
+            ("empty string", Some("")),
+            ("garbage json", Some("{not json")),
+            ("empty enabled", Some(r#"{"enabled":[],"default":"x"}"#)),
+            ("all-invalid", Some(r#"{"enabled":["-rf","a b"],"default":"-rf"}"#)),
+        ] {
+            let rc = cfg_from(row);
+            assert_eq!(rc.enabled, fb, "{name} should fall back");
+            assert_eq!(rc.default_ref, "master", "{name} default");
+        }
+
+        let rc = cfg_from(Some(r#"{"enabled":["master","unstable"],"default":"unstable"}"#));
+        assert_eq!(rc.enabled, ["master", "unstable"]);
+        assert_eq!(rc.default_ref, "unstable");
+
+        // A default outside the enabled set, or missing entirely, becomes the first entry.
+        assert_eq!(cfg_from(Some(r#"{"enabled":["piuma","master"],"default":"ciao"}"#)).default_ref, "piuma");
+        assert_eq!(cfg_from(Some(r#"{"enabled":["stable","master"]}"#)).default_ref, "stable");
+
+        // Unusable names are dropped, duplicates collapse, order is preserved.
+        let rc = cfg_from(Some(r#"{"enabled":["master","a b","feature/x","master"],"default":"master"}"#));
+        assert_eq!(rc.enabled, ["master", "feature/x"]);
+
+        // Over the cap, trimmed rather than refused.
+        let many: Vec<String> = (0..30).map(|i| format!("b{i}")).collect();
+        let rc = cfg_from(Some(&json!({ "enabled": many, "default": "b0" }).to_string()));
+        assert_eq!(rc.enabled.len(), MAX_REFS);
+
+        // norm(): an enabled ref survives, anything else becomes the default.
+        let rc = RefConfig { enabled: vec!["master".into(), "piuma".into()], default_ref: "piuma".into() };
+        assert_eq!(rc.norm("master"), "master");
+        assert_eq!(rc.norm("piuma"), "piuma");
+        for req in ["ciao", "", "../etc"] {
+            assert_eq!(rc.norm(req), "piuma", "{req:?} should coerce to the default");
+        }
     }
 }
 
