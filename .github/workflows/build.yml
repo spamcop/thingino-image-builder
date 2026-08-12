@@ -28,7 +28,7 @@ on:
         description: "thingino commit/ref to build (blank = master)"
         required: false
       ref:
-        description: "thingino branch the commit belongs to (master/ciao/stable)"
+        description: "thingino branch the commit belongs to (blank = master)"
         required: false
         default: master
       runner_arch:
@@ -97,9 +97,20 @@ jobs:
             echo "::error::Invalid commit: '$COMMIT'"; exit 1
           fi
           # ref: the thingino branch this commit belongs to; names the local branch and
-          # picks the upstream ccache channel. Anything unexpected falls back to master.
+          # picks the upstream ccache channel. Which branches are offered is an admin
+          # setting in the broker now, so this can no longer be a fixed list of three —
+          # it validates the SHAPE instead, matching the broker's own check: must start
+          # alphanumeric (so it can never be read as an option), then letters, digits,
+          # dot, underscore, dash or slash, and none of git's illegal sequences.
+          # Blank means a hand-started run, which builds master. Anything else is a bug
+          # or an attack, and hard-fails rather than quietly building the wrong branch.
           REF="${RAW_REF:-}"
-          if [[ ! "$REF" =~ ^(master|ciao|stable)$ ]]; then REF="master"; fi
+          if [[ -z "$REF" ]]; then REF="${THINGINO_REF}"; fi
+          if [[ ${#REF} -gt 100 ]] || [[ ! "$REF" =~ ^[A-Za-z0-9][A-Za-z0-9._/-]*$ ]] \
+             || [[ "$REF" == *..* ]] || [[ "$REF" == *@\{* ]] || [[ "$REF" == *//* ]] \
+             || [[ "$REF" == *[./] ]] || [[ "$REF" == *.lock ]] || [[ "$REF" == *.lock/* ]]; then
+            echo "::error::Invalid ref: '$REF'"; exit 1
+          fi
           echo "defconfig=$DEFCONFIG" >> "$GITHUB_OUTPUT"
           echo "build_id=$BUILD_ID" >> "$GITHUB_OUTPUT"
           echo "commit=$COMMIT" >> "$GITHUB_OUTPUT"
