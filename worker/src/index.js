@@ -129,11 +129,12 @@ const logEvent = (env, kind, build_id, uid, ip, detail, ipFull, country, app) =>
 // misreport its door. The body field is only the fallback for a caller that sends none. Anything
 // outside the allowlist is stored as null rather than kept, so this column cannot be filled with
 // arbitrary caller text one row per attempt.
-const APP_ALLOW = new Set(["builder", "tb"]);
+const APP_ALLOW = new Set(["builder", "tb", "tts"]);
 const APP_ORIGINS = {
   "https://image-builder.thingino.com": "builder",
   "https://thingino-image-builder-1d2e9b23.thingino.workers.dev": "builder",
   "https://tb.thingino.workers.dev": "tb",
+  "https://tts.thingino.workers.dev": "tts",
 };
 function loginApp(request, body) {
   const byOrigin = APP_ORIGINS[request.headers.get("Origin") || ""];
