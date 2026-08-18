@@ -24,7 +24,17 @@ function buildAction(b){ const id=esc(b.build_id);
 let ghRepo=null;
 const runcell=(r,state)=>{ if(!r) return ''; const c=`<code>${esc(r)}</code>`;
   return (ghRepo&&state!=='expired')?`<a href="https://github.com/${esc(ghRepo)}/actions/runs/${encodeURIComponent(r)}" target="_blank" rel="noopener">${c}</a>`:c; };
-const tfmt=ts=>new Date(ts*1000).toLocaleTimeString();
+// Always 24 hour and zero padded, and the same shape cf-termbin uses so the two portals read
+// alike. `hourCycle:'h23'` rather than `hour12:false`: on current ICU both resolve to h23 in
+// every locale, but h23 asks for it outright instead of inheriting whatever the locale's
+// preferred 24 hour cycle is, and the other one, h24, renders midnight as 24:00:12. Locale
+// still decides field order, so a date stays dd/mm in en-GB and mm/dd in en-US.
+const HMS={hourCycle:'h23',hour:'2-digit',minute:'2-digit',second:'2-digit'};
+const YMD={year:'numeric',month:'2-digit',day:'2-digit'};
+// Full date and time, because an event log spans days: a clock alone leaves a row from Tuesday
+// indistinguishable from one an hour old.
+const tfmt=ts=>new Date(ts*1000).toLocaleString([],{...YMD,...HMS});
+const hms=d=>d.toLocaleTimeString([],HMS);
 const dur=(a,b)=>{ if(!a||!b) return '–'; const s=b-a; return `${Math.floor(s/60)}m${String(s%60).padStart(2,'0')}s`; };
 const ago=ts=>{ const s=Math.floor(Date.now()/1000)-ts; if(s<60)return I18N.t('ago_seconds',{n:s}); if(s<3600)return I18N.t('ago_minutes',{n:Math.floor(s/60)}); return I18N.t('ago_hours',{n:Math.floor(s/3600)}); };
 const PILL={queued:'bg-info text-dark',running:'bg-primary',cancelling:'bg-warning text-dark',done:'bg-success',failed:'bg-danger',cancelled:'bg-secondary',expired:'bg-dark border'};
@@ -36,7 +46,7 @@ const tile=(l,n)=>`<div class="col-6 col-md-3 col-lg-2"><div class="card text-ce
 // Cloudflare's free daily request limit answers admin endpoints with a bare 429 (none of
 // our own admin routes emit 429), so that status means "out of capacity". Admin sees the
 // real cause; the public page just shows the generic maintenance banner.
-const capText=()=>{ const n=new Date(), reset=new Date(Date.UTC(n.getUTCFullYear(),n.getUTCMonth(),n.getUTCDate()+1)); return I18N.t('over_capacity',{t:reset.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}); };
+const capText=()=>{ const n=new Date(), reset=new Date(Date.UTC(n.getUTCFullYear(),n.getUTCMonth(),n.getUTCDate()+1)); return I18N.t('over_capacity',{t:reset.toLocaleTimeString([],{hourCycle:'h23',hour:'2-digit',minute:'2-digit'})}); };
 function showCap(on){ const b=$('cap-banner'); if(b){ if(on) b.textContent=capText(); b.style.display=on?'':'none'; } }
 async function adminGet(){ const r=await fetch(API+'/api/admin/stats'+allQs(),{headers:{Authorization:'Bearer '+tok()}}); if(r.status===401){ const e=new Error('unauthorized'); e.auth=1; throw e; } if(r.status===429){ const e=new Error('capacity'); e.cap=1; throw e; } if(!r.ok) throw new Error('http '+r.status); return r.json(); }
 let masterMode=false;
@@ -128,7 +138,7 @@ async function refresh(){
   moreLine('builds-more','builds',(d.recent_builds||[]).length,Object.values(c).reduce((a,x)=>a+(x||0),0));
   moreLine('events-more','events',(d.recent_events||[]).length,d.events_total);
   $('events-body').innerHTML=(d.recent_events||[]).map(e=>`<tr><td>${tfmt(e.ts)}</td><td>${esc(e.kind)}</td><td><code>${esc(short(e.build_id))}</code></td><td><code>${esc(short(e.uid))}</code></td><td>${ipcell(e.ip,e.ip_bucket,e.country)}</td><td class="muted">${esc(e.detail)}</td></tr>`).join('');
-  $('updated').textContent=I18N.t('updated',{t:new Date().toLocaleTimeString()});
+  $('updated').textContent=I18N.t('updated',{t:hms(new Date())});
 }
 async function toggle(){ await fetch(API+'/api/admin/toggle',{method:'POST',headers:{Authorization:'Bearer '+tok(),'content-type':'application/json'},body:JSON.stringify({enabled:!enabled})}); refresh(); }
 // --- notice banner: one at a time, posted to the public builder page ---
@@ -146,7 +156,7 @@ function renderNotice(d){
   const n=d.notice, lvl=n?nlvl(n.level):'note';
   $('notice-state').innerHTML=n
     ?`<span class="badge ${NLVL[lvl]}">${esc(I18N.t('notice_'+lvl))}</span> ${esc(n.text)}`
-      +(n.until?` <span class="muted">${esc(I18N.t('notice_expires',{t:new Date(n.until*1000).toLocaleString()}))}</span>`:'')
+      +(n.until?` <span class="muted">${esc(I18N.t('notice_expires',{t:tfmt(n.until)}))}</span>`:'')
     :`<span class="muted">${esc(I18N.t('notice_none'))}</span>`;
   // Refill the editor from the server only when the server's value actually changed and the
   // box isn't focused, so the 10s poll can't overwrite a half-typed notice.
