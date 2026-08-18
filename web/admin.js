@@ -439,8 +439,12 @@ const inviteParam=new URLSearchParams(location.search).get('invite');
 if(inviteParam){ startEnroll(inviteParam); }
 else if(tok()&&!idledOut()){ adminGet().then(show).catch(e=>{ if(e&&e.auth) localStorage.removeItem(TK); else show(); }); }
 gateVersion();
-// Poll gently: 10s, and not at all while the tab is hidden (idle background admin tabs
+// Poll gently: 60s, and not at all while the tab is hidden (idle background admin tabs
 // were burning the free request quota); refresh immediately when the tab comes back.
 // An open confirm popover holds the poll off: refreshing would rewrite the table under it.
-setInterval(()=>{ if(document.hidden||cpop) return; if($('app').style.display!=='none'&&!idledOut()) refresh(); },10000);
+// 10s here was the largest single consumer of the free 100k/day, which is shared across every
+// Worker on the account: an open tab cost 360 requests an hour against cf-termbin's 240, for a
+// dashboard nobody watches a build from. Someone tracking their own build uses the public page,
+// and that one already tightens to every 5s while the build is active.
+setInterval(()=>{ if(document.hidden||cpop) return; if($('app').style.display!=='none'&&!idledOut()) refresh(); },60000);
 document.addEventListener('visibilitychange',()=>{ if(!document.hidden&&$('app').style.display!=='none'&&!idledOut()) refresh(); });
