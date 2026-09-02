@@ -270,7 +270,8 @@
     $('stats').innerHTML=`<i class="bi bi-hdd-stack me-1"></i><b>${esc(d.running)}</b>/${esc(d.max_concurrent)} ${I18N.t('stats_building')} &nbsp;·&nbsp; <b>${esc(d.queued)}</b> ${I18N.t('stats_queued')} &nbsp;·&nbsp; ${I18N.t('stats_typical')} <b>${mins(d.avg_build_secs)}</b>`;
     const cb=$('commit-badge');
     if(curCommit){ cb.textContent=I18N.t('commit_badge_text',{branch:curRef,commit:curCommit.slice(0,7)}); cb.href='https://github.com/themactep/thingino-firmware/commit/'+curCommit; cb.classList.remove('d-none'); } else cb.classList.add('d-none');
-    if(d.version){ const v=$('version'); if(v) v.textContent=d.version; }
+    if(d.version){ const v=$('version'); if(v) v.textContent=d.version;
+      const av=$('about-version'); if(av) av.textContent=d.version; }
     const b=$('banner');
     if(d.builds_enabled===false){ b.innerHTML='<i class="bi bi-exclamation-triangle me-1"></i>'+I18N.t('builds_disabled'); b.classList.remove('d-none'); }
     else b.classList.add('d-none');
@@ -432,13 +433,12 @@
     refresh(true);
   }
 
-  /* ---- Opt-in help balloons (? button / Settings toggle; off by default) ---- */
+  /* ---- Opt-in help balloons (Settings toggle; off by default) ---- */
   let helpMode = localStorage.getItem('thingino_help')==='1';
   let _helpBalloon=null, _helpHover=null;
 
   function applyHelpMode(){
     document.body.classList.toggle('help-on', helpMode);
-    const b=$('btn-help'); if(b) b.classList.toggle('help-active', helpMode);
     const s=$('setting-help'); if(s) s.checked=helpMode;
     // Suppress native title tooltips while help mode is on so they don't double up
     // with our balloons; restore them when it's off.
@@ -504,7 +504,13 @@
   $('settings-cancel').addEventListener('click',closeSettings);
   $('settings-save').addEventListener('click',saveSettings);
   $('settings-overlay').addEventListener('click',e=>{ if(e.target===$('settings-overlay')) closeSettings(); });
-  $('btn-help').addEventListener('click',()=>setHelp(!helpMode));
+  // About: a plain show/hide of static, already-translated markup. Closes the way the
+  // Settings dialog does, on either close control or a click on the backdrop itself.
+  const showAbout=on=>$('about-overlay').classList.toggle('d-none',!on);
+  $('btn-about').addEventListener('click',()=>showAbout(true));
+  $('about-close').addEventListener('click',()=>showAbout(false));
+  $('about-close-x').addEventListener('click',()=>showAbout(false));
+  $('about-overlay').addEventListener('click',e=>{ if(e.target===$('about-overlay')) showAbout(false); });
   $('setting-help').addEventListener('change',e=>setHelp(e.target.checked));
   I18N.apply(); renderFooterLimits(); I18N.selector('lang-slot'); applyHelpMode();
   window.addEventListener('i18nchange',()=>{ I18N.apply(); renderFooterLimits(); validate(); renderYou(); renderLinkMsg(); renderBranchOptions(); if(lastStatsData) renderGlobal(lastStatsData); applyHelpMode(); });

@@ -50,9 +50,11 @@
     /* What Bootstrap does to every animation it ships, and the notice must read fine without it. */
     @media (prefers-reduced-motion:reduce) { #notice.pulse { animation:none; } }
     @media (max-width:576px){ body{ padding:.5rem !important; } }
-    /* Opt-in help balloons (toggled by the ? button / Settings; off by default) */
+    /* Opt-in help balloons (toggled in Settings; off by default) */
     body.help-on [data-help] { cursor: help; }
-    #btn-help.help-active { color:#fff; background-color:#6c757d; border-color:#6c757d; }
+    /* About dialog: links carry the project's orange, like privacy.html's do. */
+    .about-link { color:#ff9e2c; text-decoration:none; display:block; padding:.2rem 0; }
+    .about-link:hover, .about-link:focus { text-decoration:underline; }
     .help-balloon { position:fixed; z-index:1100; max-width:260px; background:#fffdf0; color:#1a1a1a; border:1px solid #c9bfa0; border-radius:12px; padding:.5rem .7rem; font-size:.8rem; line-height:1.35; box-shadow:0 5px 16px rgba(0,0,0,.28); pointer-events:none; opacity:0; transform:translateY(4px); transition:opacity .12s ease, transform .12s ease; }
     .help-balloon.show { opacity:1; transform:translateY(0); }
     .help-balloon::before { content:""; position:absolute; top:-7px; left:18px; width:12px; height:12px; background:#fffdf0; border-left:1px solid #c9bfa0; border-top:1px solid #c9bfa0; transform:rotate(45deg); }
@@ -68,7 +70,7 @@
         </h2>
         <div class="ms-auto d-flex align-items-center gap-2">
           <a id="commit-badge" class="badge bg-info-subtle text-info border border-info-subtle text-decoration-none d-none" target="_blank" rel="noopener" title="thingino commit being built" data-i18n-title="commit_badge_title" data-help="help_commit"></a>
-          <button id="btn-help" class="btn btn-sm btn-outline-secondary py-0 px-1" data-i18n-title="help_help" data-help="help_help"><i class="bi bi-question-lg"></i></button>
+          <button id="btn-about" class="btn btn-sm btn-outline-secondary py-0 px-1" data-i18n-title="about_title" data-help="help_about"><i class="bi bi-info-lg"></i></button>
           <button id="settings-btn" class="btn btn-sm btn-outline-secondary py-0 px-1" title="Settings" data-i18n-title="gear_title" data-help="help_settings"><i class="bi bi-gear"></i></button>
         </div>
       </div>
@@ -135,11 +137,42 @@
              is cached, so this is populated before the first poll of a return visit. -->
         <div id="branch-list"></div>
         <p class="small muted mt-3 mb-0" data-i18n="branch_note">Changes which thingino branch your firmware is built from. The camera list updates to match.</p>
-        <hr class="my-2"><div class="form-check form-switch"><input class="form-check-input" type="checkbox" id="setting-help"><label class="form-check-label small" for="setting-help" data-i18n="setting_help_label">Show help hints: hover any control for a tip (or use the ? button)</label></div>
+        <hr class="my-2"><div class="form-check form-switch"><input class="form-check-input" type="checkbox" id="setting-help"><label class="form-check-label small" for="setting-help" data-i18n="setting_help_label">Show help hints: hover any control for a tip</label></div>
       </div>
       <div class="card-footer d-flex justify-content-end gap-2">
         <button id="settings-cancel" class="btn btn-outline-secondary btn-sm" data-i18n="btn_cancel">Cancel</button>
         <button id="settings-save" class="btn btn-outline-primary btn-sm" data-i18n="btn_save">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- About: what this thing is, plus where the project lives. Static markup rather than a
+       page of its own in an iframe (privacy.html's arrangement), because every string here
+       is already carried by the index dictionaries, so I18N.apply() translates it in place
+       and a language switch re-renders it with the rest of the page. -->
+  <div id="about-overlay" class="d-none" style="position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:1050;display:flex;align-items:center;justify-content:center;padding:1rem;">
+    <div class="card" style="width:100%;max-width:520px;max-height:88vh;">
+      <div class="card-header d-flex align-items-center gap-2">
+        <h2 class="card-title mb-0 fs-6"><i class="bi bi-info-circle me-1"></i> <span data-i18n="about_title">About</span></h2>
+        <button type="button" id="about-close-x" class="btn-close btn-close-white ms-auto"></button>
+      </div>
+      <div class="card-body small" style="overflow-y:auto;">
+        <p data-i18n="about_what">This builder compiles thingino camera firmware for you in the cloud.</p>
+        <p data-i18n="about_project">thingino is free, open-source firmware for Ingenic-based IP cameras.</p>
+        <p class="muted mb-3"><i class="bi bi-exclamation-triangle me-1"></i><span data-i18n="about_caution">Flashing firmware can brick a camera.</span></p>
+        <p class="muted"><i class="bi bi-lightbulb me-1"></i><span data-i18n="about_hints">Hover hints for every control can be switched on in Settings.</span></p>
+        <p class="muted mb-1" data-i18n="about_links">Project links</p>
+        <a class="about-link" href="https://thingino.com/" target="_blank" rel="noopener"><i class="bi bi-globe me-2"></i><span data-i18n="about_site">thingino project site</span></a>
+        <a class="about-link" href="https://github.com/themactep/thingino-firmware/wiki" target="_blank" rel="noopener"><i class="bi bi-journal-text me-2"></i><span data-i18n="about_wiki">Documentation and camera wiki</span></a>
+        <a class="about-link" href="https://github.com/themactep/thingino-firmware" target="_blank" rel="noopener"><i class="bi bi-github me-2"></i><span data-i18n="about_firmware">Firmware source code</span></a>
+        <a class="about-link" href="https://t.me/thingino" target="_blank" rel="noopener"><i class="bi bi-telegram me-2"></i><span data-i18n="about_telegram">Telegram group</span></a>
+        <a class="about-link" href="https://discord.gg/xDmqS944zr" target="_blank" rel="noopener"><i class="bi bi-discord me-2"></i><span data-i18n="about_discord">Discord server</span></a>
+        <a class="about-link" href="https://github.com/thingino/thingino-image-builder" target="_blank" rel="noopener"><i class="bi bi-code-slash me-2"></i><span data-i18n="about_source">This builder's source code</span></a>
+      </div>
+      <div class="card-footer d-flex align-items-center gap-2">
+        <!-- Same string as the footer's version, filled from the same stats response. -->
+        <span class="small muted"><span data-i18n="about_version">Builder version</span> <code id="about-version">…</code></span>
+        <button id="about-close" class="btn btn-outline-secondary btn-sm ms-auto" data-i18n="btn_close">Close</button>
       </div>
     </div>
   </div>
