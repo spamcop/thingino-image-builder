@@ -299,6 +299,7 @@ jobs:
           # answered with EOF, so the build dies at "Installation aborted by the
           # user" the moment dep_check.sh grows a package we haven't mirrored yet.
           make update WORKFLOW=1
+          make patch-buildroot WORKFLOW=1
 
       - name: Build firmware
         env:
