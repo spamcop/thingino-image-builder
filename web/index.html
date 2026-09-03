@@ -52,6 +52,12 @@
     @media (max-width:576px){ body{ padding:.5rem !important; } }
     /* Opt-in help balloons (toggled in Settings; off by default) */
     body.help-on [data-help] { cursor: help; }
+    /* Bootstrap gives a disabled .btn pointer-events:none, which also hides it
+       from the elementFromPoint the balloons use -- so the hints would skip
+       exactly the controls a reader most wants explained, the ones not yet
+       usable. Hand pointer events back while help is on. A disabled control
+       still fires no click, so nothing but the balloon changes. */
+    body.help-on [data-help]:disabled { pointer-events: auto; }
     /* About dialog: links carry the project's orange, like privacy.html's do. */
     .about-link { color:#ff9e2c; text-decoration:none; display:block; padding:.2rem 0; }
     .about-link:hover, .about-link:focus { text-decoration:underline; }
