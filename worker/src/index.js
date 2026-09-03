@@ -771,7 +771,14 @@ async function schedulerWork(env, ts, warm) {
     const expired = age > (b.state === "failed" ? cfg.failedRetention : cfg.retention);
     if (!expired) continue;
     budget--;
-    const assetOk = b.state === "done" ? await deleteReleaseAssets(env, b.id) : true;
+    // A cancelled build can still have an artifact: the run publishes the image as its
+    // last step, and someone who cancels a build the page still shows as running (which
+    // is what a stalled tick looks like from outside) cancels a run that already uploaded.
+    // Observed on 2026-09-02: cc2e82d5 published at 05:20, was cancelled at 05:47, and its
+    // 16 MB .bin outlived every row that referred to it. So cancelled sweeps its assets
+    // too; the lookup 404s harmlessly when there was nothing to publish. Only a failed
+    // build is exempt, its run dies before the upload step.
+    const assetOk = b.state === "failed" ? true : await deleteReleaseAssets(env, b.id);
     const runOk = b.run_id ? await deleteRun(env, b.run_id) : true;
     if (assetOk && runOk) {
       await env.DB.prepare("UPDATE builds SET state='expired' WHERE id=?").bind(b.id).run();
