@@ -584,6 +584,17 @@ async function fetchRuns(env) {
     run_id: x.id, name: x.name || x.display_title || "", status: x.status || "", conclusion: x.conclusion || null,
   }));
 }
+// Does the rolling release already carry this build's image? Asked only on the timeout
+// path, where the alternative is calling a build failed on the strength of a clock. A
+// published .bin means CI finished the job whatever our bookkeeping says, so this is the
+// more authoritative answer, and it costs one request.
+async function releaseHasAsset(env, id) {
+  try {
+    const r = await ghFetch(env, `https://api.github.com/repos/${env.GITHUB_REPO}/releases/tags/${env.ROLLING_TAG || "web-builds"}`);
+    if (!r.ok) return false;
+    return ((await r.json()).assets || []).some((a) => a.name === `${id}.bin`);
+  } catch { return false; }
+}
 const cancelRun = (env, runId) =>
   ghFetch(env, `https://api.github.com/repos/${env.GITHUB_REPO}/actions/runs/${runId}/cancel`, { method: "POST" }).catch(() => {});
 async function deleteRun(env, runId) {
@@ -732,8 +743,17 @@ async function schedulerWork(env, ts, warm) {
         await logEvent(env, "failed", b.id, null, null, `timed out after ${cfg.buildTimeout}s (run cancelled)`);
       }
     } else if (ts - (b.dispatched_ts || ts) > cfg.buildTimeout) {
-      await env.DB.prepare("UPDATE builds SET state='failed', outcome='failed', finished_ts=? WHERE id=?").bind(ts, b.id).run();
-      await logEvent(env, "failed", b.id, null, null, "timed out / run not found");
+      // No run under this id and the clock has run out. Before calling it failed, ask the
+      // release: when ticks stop for longer than the timeout, a build that succeeded and
+      // published its image comes back here looking exactly like one that never ran, and
+      // failing it would throw away a finished image the requester is still waiting for.
+      const shipped = await releaseHasAsset(env, b.id);
+      const st = shipped ? "done" : "failed";
+      const fin = await env.DB.prepare("UPDATE builds SET state=?, outcome=?, finished_ts=? WHERE id=? AND state='running'").bind(st, st, ts, b.id).run();
+      if ((fin.meta?.changes ?? 0) === 1) {
+        if (shipped) await env.DB.prepare("INSERT INTO settings(key,value) VALUES('total_done','1') ON CONFLICT(key) DO UPDATE SET value=CAST(value AS INTEGER)+1").run();
+        await logEvent(env, st, b.id, null, null, shipped ? "run not listed, but its image is published" : "timed out / run not found");
+      }
     }
   }
 
@@ -1342,12 +1362,12 @@ export default {
   async fetch(request, env, ctx) {
     if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: cors(env) });
     const url = new URL(request.url), p = url.pathname;
-    // Whole-API per-IP flood guard (except health), so no endpoint — not just
+    // Whole-API per-IP flood guard, so no endpoint — not just
     // /api/build — can burn the free-tier request/D1 budget (audit H1). This global
     // guard is a per-isolate in-memory counter, NOT the Durable Object: a DO round-trip
     // per read doubled our billable events (and a rejected request still counts toward
     // the Workers daily limit anyway), so the exact DO check is reserved for /api/build.
-    if (p.startsWith("/api/") && p !== "/api/health") {
+    if (p.startsWith("/api/")) {
       const gip = ipBucket(request.headers.get("CF-Connecting-IP") || "");
       if (!softGuard(gip, 90, 60)) return json({ error: "too many requests — slow down" }, 429, env);
     }
@@ -1355,7 +1375,11 @@ export default {
     // away never reaches D1. Only the polling endpoints carry it, so it costs one settings
     // read per poll while the cron is healthy, and it runs after the response, so no
     // visitor waits on it. Anyone watching a build is polling one of these.
-    if (request.method === "GET" && (p === "/api/stats" || p === "/api/admin/stats" || p.startsWith("/api/status/")))
+    // /api/health is in there so an uptime monitor doubles as an off-platform heartbeat:
+    // the fallback clock only turns while someone is looking, and a pinger is someone
+    // looking. Health used to sit outside the flood guard above; it is inside it now,
+    // because it can reach D1 through this. 90/min per IP leaves any monitor untouched.
+    if (request.method === "GET" && (p === "/api/stats" || p === "/api/admin/stats" || p === "/api/health" || p.startsWith("/api/status/")))
       ctx.waitUntil(maybeTick(env));
     try {
       if (p === "/api/health") return new Response("ok", { headers: cors(env) });
