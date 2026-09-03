@@ -610,7 +610,40 @@ async function deleteReleaseAssets(env, id) {
   } catch { return false; }
 }
 
-async function schedulerStep(env) {
+// How long a tick may be missing before request traffic runs one instead. Cron is a
+// 1-minute trigger, so this is two missed windows: long enough that a slow tick or a
+// clock skew never trips it, short enough that a watching visitor sees their build
+// finish within a poll or two of the run actually ending.
+const TICK_STALE_SECS = 120;
+
+// The cron is Cloudflare's to fire, and on 2026-09-02 it silently stopped for four hours
+// while fetch traffic kept flowing normally: no scheduled invocation in the tail, the
+// trigger still registered, the script untouched for three weeks. Nothing else moves a
+// build along, so finished runs sat in 'running' forever, the queue never drained and the
+// reaper never ran. So the polling endpoints carry a fallback clock: when the last
+// completed tick is older than the window above, the request runs one. The D1 lease below
+// is what keeps a hundred concurrent pollers to a single tick.
+async function maybeTick(env) {
+  try {
+    const last = parseInt((await getSetting(env, "tick_last_ok")) || "0", 10);
+    if (nowSec() - last <= TICK_STALE_SECS) return;
+    await schedulerStep(env, "fetch");
+  } catch (e) {
+    console.error("maybeTick failed:", e);
+  }
+}
+// Records that a tick actually completed, and logs the changeover when the clock driving
+// them switches. That transition is the only trace a cron outage leaves in the panel, so
+// it is an event; the per-tick timestamp is not (an event a minute would bury the log).
+async function noteTick(env, ts, source) {
+  const prev = await getSetting(env, "tick_source");
+  await setSetting(env, "tick_last_ok", String(ts));
+  if (prev === source) return;
+  await setSetting(env, "tick_source", source);
+  await logEvent(env, source === "fetch" ? "cron_stalled" : "cron_resumed", null, null, null,
+    source === "fetch" ? "no cron tick in the last window; ticking from request traffic" : "cron trigger firing again");
+}
+async function schedulerStep(env, source) {
   const ts = nowSec();
   // Advisory D1 lease so overlapping cron ticks don't double-process (best-effort).
   // The 50s lease auto-expires before the next 1-min tick if a run dies mid-flight.
@@ -618,7 +651,11 @@ async function schedulerStep(env) {
   if (lock > ts) return;
   await setSetting(env, "cron_lock", String(ts + 50));
   try {
-    await schedulerWork(env, ts);
+    // A fetch-driven tick skips the cache warming: it is an optimisation for the request
+    // path, and the request that triggered this tick has just resolved its own ref anyway.
+    // Reconciling, dispatching and reaping are the parts that must not stop.
+    await schedulerWork(env, ts, source !== "fetch");
+    await noteTick(env, ts, source || "cron");
   } catch (e) {
     // Surface recurring failures instead of letting waitUntil swallow them silently.
     console.error("schedulerStep failed:", e);
@@ -627,7 +664,7 @@ async function schedulerStep(env) {
     try { await setSetting(env, "cron_lock", "0"); } catch (_) {}
   }
 }
-async function schedulerWork(env, ts) {
+async function schedulerWork(env, ts, warm) {
   const cfg = await limits(env);
   // Warm the per-branch commit + defconfig caches so visitors rarely pay the GitHub
   // round-trip inline. This used to warm every branch, which was safe while there were
@@ -635,10 +672,12 @@ async function schedulerWork(env, ts) {
   // most visitors land) plus one other per tick, rotated by the clock so no cursor has to
   // be stored. A ref left cold just means the next request for it refreshes it itself,
   // which is already what happens whenever its 5 min TTL lapses.
-  const rc = await refConfig(env);
-  const others = rc.enabled.filter((r) => r !== rc.default);
-  for (const r of [rc.default, ...(others.length ? [others[Math.floor(ts / 60) % others.length]] : [])])
-    await resolveThingino(env, r, rc);
+  if (warm) {
+    const rc = await refConfig(env);
+    const others = rc.enabled.filter((r) => r !== rc.default);
+    for (const r of [rc.default, ...(others.length ? [others[Math.floor(ts / 60) % others.length]] : [])])
+      await resolveThingino(env, r, rc);
+  }
 
   const running = ((await env.DB.prepare("SELECT id,run_id,dispatched_ts,cancel_requested FROM builds WHERE state='running'").all()).results) || [];
   const slots = Math.max(0, cfg.maxConcurrent - running.length);
@@ -717,14 +756,21 @@ async function schedulerWork(env, ts) {
     }
   }
 
-  const reap = ((await env.DB.prepare("SELECT id,state,run_id,finished_ts FROM builds WHERE state IN ('done','failed','cancelled') AND finished_ts IS NOT NULL").all()).results) || [];
+  const reap = ((await env.DB.prepare("SELECT id,state,run_id,finished_ts FROM builds WHERE state IN ('done','failed','cancelled') AND finished_ts IS NOT NULL ORDER BY finished_ts ASC").all()).results) || [];
+  // Each reap costs up to three GitHub calls (release lookup, asset delete, run delete)
+  // against a 50-subrequest ceiling per invocation, and a backlog builds up whenever ticks
+  // stop for a while. Oldest first, a few per tick: the queue drains over the next few
+  // minutes instead of one tick trying to clear it all and dying halfway through.
+  let budget = 8;
   for (const b of reap) {
+    if (budget <= 0) break;
     const age = ts - b.finished_ts;
     // A failed build holds its Actions run (and so its logs) for the longer window, so an
     // admin can still open the run from the panel and see what broke. done and cancelled
     // reap on the short one: a cancelled build's run was already deleted by the cancel path.
     const expired = age > (b.state === "failed" ? cfg.failedRetention : cfg.retention);
     if (!expired) continue;
+    budget--;
     const assetOk = b.state === "done" ? await deleteReleaseAssets(env, b.id) : true;
     const runOk = b.run_id ? await deleteRun(env, b.run_id) : true;
     if (assetOk && runOk) {
@@ -1286,7 +1332,7 @@ export class RateLimiter {
 
 // ---- entrypoints ----------------------------------------------------------
 export default {
-  async fetch(request, env, _ctx) {
+  async fetch(request, env, ctx) {
     if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: cors(env) });
     const url = new URL(request.url), p = url.pathname;
     // Whole-API per-IP flood guard (except health), so no endpoint — not just
@@ -1298,6 +1344,12 @@ export default {
       const gip = ipBucket(request.headers.get("CF-Connecting-IP") || "");
       if (!softGuard(gip, 90, 60)) return json({ error: "too many requests — slow down" }, 429, env);
     }
+    // Fallback clock (see maybeTick), behind the flood guard so a request being turned
+    // away never reaches D1. Only the polling endpoints carry it, so it costs one settings
+    // read per poll while the cron is healthy, and it runs after the response, so no
+    // visitor waits on it. Anyone watching a build is polling one of these.
+    if (request.method === "GET" && (p === "/api/stats" || p === "/api/admin/stats" || p.startsWith("/api/status/")))
+      ctx.waitUntil(maybeTick(env));
     try {
       if (p === "/api/health") return new Response("ok", { headers: cors(env) });
       if (p === "/api/defconfigs" && request.method === "GET") return await handleDefconfigs(env, url.searchParams.get("ref"));
@@ -1333,6 +1385,6 @@ export default {
   },
 
   async scheduled(_event, env, ctx) {
-    ctx.waitUntil(schedulerStep(env));
+    ctx.waitUntil(schedulerStep(env, "cron"));
   },
 };
