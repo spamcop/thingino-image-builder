@@ -511,6 +511,9 @@
   $('about-close').addEventListener('click',()=>showAbout(false));
   $('about-close-x').addEventListener('click',()=>showAbout(false));
   $('about-overlay').addEventListener('click',e=>{ if(e.target===$('about-overlay')) showAbout(false); });
+  // Escape dismisses whichever is open, the way the backdrop already does.
+  // Settings persists through Save, so leaving it this way discards.
+  document.addEventListener('keydown',e=>{ if(e.key!=='Escape') return; closeSettings(); showAbout(false); });
   $('setting-help').addEventListener('change',e=>setHelp(e.target.checked));
   I18N.apply(); renderFooterLimits(); I18N.selector('lang-slot'); applyHelpMode();
   window.addEventListener('i18nchange',()=>{ I18N.apply(); renderFooterLimits(); validate(); renderYou(); renderLinkMsg(); renderBranchOptions(); if(lastStatsData) renderGlobal(lastStatsData); applyHelpMode(); });

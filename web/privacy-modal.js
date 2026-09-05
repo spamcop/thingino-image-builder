@@ -37,5 +37,8 @@
   });
   x.addEventListener("click", function () { ov.classList.add("d-none"); });
   ov.addEventListener("click", function (e) { if (e.target === ov) ov.classList.add("d-none"); });
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "Escape") ov.classList.add("d-none");
+  });
   window.addEventListener("resize", size);
 })();
